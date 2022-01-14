@@ -19,7 +19,11 @@
     "test": "npx jest",
     "test:coverage": "npx jest --coverage",
     "build": "rm -rf dist && npx webpack",
-    "types": "mkdir -p ./src/schema/types && npx json2ts ./src/schema/project.json > ./src/schema/types/project.d.ts"
+    "types": "mkdir -p ./src/schema/types && npx json2ts ./src/schema/project.json > ./src/schema/types/project.d.ts",
+    "release:beta": "npx standard-version -p -s",
+    "release:major": "npx standard-version -r major -s",
+    "release:minor": "npx standard-version -r minor -s",
+    "release:patch": "npx standard-version -r patch -s"
   },
   "homepage": "https://github.com/windingtree/org.id-sdk/tree/master/packages/cli#readme",
   "repository": {
