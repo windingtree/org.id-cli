@@ -149,7 +149,7 @@ export const signOrgJsonWithBlockchainAccount = async (
   }
 
   const {
-    accountId,
+    accountAddress,
     blockchainType
   } = vc.parseBlockchainAccountId(issuerBlockchainAccountId);
 
@@ -182,7 +182,7 @@ export const signOrgJsonWithBlockchainAccount = async (
 
   const signerAddress = await signer.getAddress();
 
-  if (ethers.utils.getAddress(accountId) !== signerAddress) {
+  if (ethers.utils.getAddress(accountAddress) !== signerAddress) {
     throw new Error(
       `Verification method account Id is different from the signer address: ${signerAddress}`
     );

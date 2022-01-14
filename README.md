@@ -2,7 +2,7 @@
 
 # ORGiD CLI
 
-An ORGiD command-line utility
+The ORGiD command-line utility
 
 ## Documentation
 
