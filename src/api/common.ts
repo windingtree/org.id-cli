@@ -285,7 +285,6 @@ export const prepareOrgIdApi = async (
 
   const { network, orgId: id } = parseDid(orgJsonSource.id);
   const networkConfig = getSupportedNetworkConfig(network);
-
   const provider = await getEthersProvider(basePath, network);
 
   const orgIdContract = new OrgIdContract(
