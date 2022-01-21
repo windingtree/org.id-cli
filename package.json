@@ -46,11 +46,12 @@
     "url": "https://github.com/windingtree/org.id-sdk.git/issues"
   },
   "dependencies": {
-    "@windingtree/org.id-auth": "^1.0.0-beta.45",
-    "@windingtree/org.id-core": "^1.0.0-beta.45",
-    "@windingtree/org.id-resolver": "3.0.0-beta.15",
-    "@windingtree/org.id-utils": "^1.0.0-beta.45",
-    "@windingtree/org.json-schema": "1.0.1",
+    "@windingtree/org.id-auth": "^1.0.0-beta.47",
+    "@windingtree/org.id-core": "^1.0.0-beta.47",
+    "@windingtree/org.id-resolver": "3.0.0-beta.18",
+    "@windingtree/org.id-utils": "^1.0.0-beta.47",
+    "@windingtree/org.json-schema": "1.0.2",
+    "@windingtree/org.json-utils": "^1.0.0-beta.47",
     "arg": "5.0.1",
     "chalk": "5.0.0",
     "crypto-js": "4.1.1",
