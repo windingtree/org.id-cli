@@ -50,7 +50,7 @@ export const importEthereum = async (
       name: 'password',
       message: 'Please provide a password',
       validate: value =>
-        /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/.exec(value)
+        /^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[a-zA-Z])/.exec(value)
           ? true
           : 'Password must consist of a minimum of eight characters, at least one letter and one number'
     }

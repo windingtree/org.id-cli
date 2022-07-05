@@ -8,7 +8,7 @@ export interface IpfsApiAddResponse {
   Size: string;
 }
 
-export const defaultIpfsApiHost =
+export const defaultIpfsApiHost = process.env.IPFS_API_HOST ||
   'https://staging-ipfs.marketplace.windingtree.com';
 
 // Adds and pin a file to IPFS
