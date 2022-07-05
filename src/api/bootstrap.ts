@@ -6,6 +6,7 @@ import type { AnySchema } from '@windingtree/org.id-utils/dist/object';
 // @todo Move `AnySchema` type declaration to the top level
 import type { ORGJSON } from '@windingtree/org.json-schema/types/org.json';
 import { org as orgJsonSchema } from '@windingtree/org.json-schema';
+import { createVerificationMethodWithBlockchainAccountId } from '@windingtree/org.json-utils';
 import { object, regexp, common } from '@windingtree/org.id-utils';
 import { printInfo, printWarn, printObject } from '../utils/console';
 import { DateTime } from  'luxon';
@@ -198,12 +199,14 @@ ORGiD DID: ${did}\n`
     id: did,
     created: DateTime.now().toISO(),
     verificationMethod: [
-      {
-        id: `${did}#${verificationMethodTag}`,
-        controller: did,
-        type: 'EcdsaSecp256k1RecoveryMethod2020',
-        blockchainAccountId: `${accountAddress}@eip155:${networkId}`
-      }
+      createVerificationMethodWithBlockchainAccountId(
+        `${did}#${verificationMethodTag}`,
+        did,
+        'eip155',
+        networkId,
+        accountAddress,
+        'Default verification method'
+      )
     ]
   };
 
