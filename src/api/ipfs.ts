@@ -1,6 +1,7 @@
 import { createReadStream } from 'fs';
 import FormData from 'form-data';
 import { http } from '@windingtree/org.id-utils';
+import { ExtraHeaders } from '@windingtree/org.id-utils/dist/http';
 
 export interface IpfsApiAddResponse {
   Name: string;
@@ -10,6 +11,35 @@ export interface IpfsApiAddResponse {
 
 export const defaultIpfsApiHost = process.env.IPFS_API_HOST ||
   'https://staging-ipfs.marketplace.windingtree.com';
+
+
+// prepare extra auth headers
+export const getAuthHeaders = (): ExtraHeaders => {
+  const authHeaders = {};
+  // if IPFS API needs auth build auth headers
+  if (process.env.IPFS_API_AUTHORIZED === "true") {    
+    const creds = process.env.IPFS_API_AUTH_CREDENTIALS;
+    switch (process.env.IPFS_API_AUTH_TYPE) {      
+      case "basic": {
+        // creds in form USERNAME:PASSWORD        
+        if (!creds) throw new Error("'IPFS_API_AUTH_CREDENTIALS=USERNAME:PASSWORD' env variable must be defined")
+        const base64Creds = Buffer.from(creds).toString("base64");
+        authHeaders["Authorization"] = `Basic ${base64Creds}`;
+        break;
+      }
+      case "bearerToken": {
+        // creds contain JWT
+        if (!creds) throw new Error("'IPFS_API_AUTH_CREDENTIALS=JWT' env variable must be defined");
+        authHeaders["Authorization"] = `Bearer ${creds}`;
+        break;
+      }
+      default:
+        break;
+    }
+  } 
+
+  return authHeaders;
+}
 
 // Adds and pin a file to IPFS
 export const addToIpfs = (
@@ -28,7 +58,8 @@ export const addToIpfs = (
       'POST',
       form,
       {
-        ...form.getHeaders()
+        ...form.getHeaders(),
+        ...getAuthHeaders()
       }
     ) as Promise<IpfsApiAddResponse>;
 };
