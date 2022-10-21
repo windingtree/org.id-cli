@@ -7,7 +7,7 @@ module.exports = {
   target: 'node',
   mode: 'development',
   entry: './src/index.ts',
-  devtool: 'inline-source-map',
+  devtool: 'source-map',
   module: {
     rules: [
       {
@@ -35,6 +35,10 @@ module.exports = {
     }
   },
   plugins: [
+    new webpack.BannerPlugin({
+      banner: '#!/usr/bin/env -S node --no-deprecation',
+      raw: true
+    }),
     new webpack.ProvidePlugin({
       fetch: ['node-fetch', 'default'],
     }),

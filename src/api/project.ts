@@ -5,6 +5,7 @@ import type {
   ProjectOrgIdsReference,
   ProjectKeysReference,
   NetworkProviderConfigReference,
+  ApiKeyConfigReference,
   ProjectConfigReference
 } from '../schema/types/project';
 import path from 'path';
@@ -25,7 +26,8 @@ export interface AddDeploymentResult {
 }
 
 export type KnownProjectConfigRecords =
-  | NetworkProviderConfigReference;
+  | NetworkProviderConfigReference
+  | ApiKeyConfigReference;
 
 export type ProjectConfigRecordsTypes = keyof ProjectConfigReference;
 
@@ -290,4 +292,14 @@ export const getNetworkProviderById = async (
   const project = await getProjectFile(basePath);
   return ((object.getDeepValue(project, 'config.networkProviders') || []) as NetworkProviderConfigReference[])
     .filter(p => p.id === networkId)[0];
+};
+
+// Get API key by Id
+export const getApiKeyById = async (
+  basePath: string,
+  id: string
+): Promise<ApiKeyConfigReference> => {
+  const project = await getProjectFile(basePath);
+  return ((object.getDeepValue(project, 'config.apisKeys') || []) as ApiKeyConfigReference[])
+    .filter(p => p.id === id)[0];
 };

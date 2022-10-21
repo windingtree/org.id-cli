@@ -44,7 +44,7 @@ export const resolveOrgId = async (
 
   const ipfsFetcherInitializer = (): FetcherResolver => ({
     getOrgJson: async (uri: string): Promise<ORGJSONVCNFT> =>
-      getFromIpfs(uri) as Promise<ORGJSONVCNFT>
+      getFromIpfs(basePath, uri) as Promise<ORGJSONVCNFT>
   });
 
   const buildIpfsFetcherConfig = (): FetcherConfig => ({

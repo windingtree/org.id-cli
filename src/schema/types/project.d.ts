@@ -48,6 +48,10 @@ export interface ProjectConfigReference {
    * List of network providers configs
    */
   networkProviders?: NetworkProviderConfigReference[];
+  /**
+   * List of API keys
+   */
+  apisKeys?: ApiKeyConfigReference[];
   [k: string]: unknown;
 }
 /**
@@ -64,6 +68,24 @@ export interface NetworkProviderConfigReference {
   uri: string;
   /**
    * Is URI is encrypted
+   */
+  encrypted: boolean;
+  [k: string]: unknown;
+}
+/**
+ * API key config record
+ */
+export interface ApiKeyConfigReference {
+  /**
+   * Name of a API key
+   */
+  id: string;
+  /**
+   * API key
+   */
+  key: string;
+  /**
+   * Is key is encrypted
    */
   encrypted: boolean;
   [k: string]: unknown;

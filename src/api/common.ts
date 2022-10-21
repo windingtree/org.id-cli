@@ -6,13 +6,14 @@ import type {
 } from '../schema/types/project';
 import { KnownProvider, OrgIdContract } from '@windingtree/org.id-core';
 import { AES, enc } from 'crypto-js';
-import { ethers, Wallet, utils as etherUtils, Signer } from 'ethers';
+import { Wallet, utils as etherUtils, Signer, providers } from 'ethers';
 import { regexp } from '@windingtree/org.id-utils';
 import prompts from 'prompts';
 import {
   getKeyPairsFromProject,
   getOrgIdsFromProject,
-  getNetworkProviderById
+  getNetworkProviderById,
+  getApiKeyById
 } from './project';
 import { read } from './fs';
 
@@ -57,19 +58,24 @@ export const blockchainNetworks: BlockchainNetworkConfig[] = [
     address: '0xDd1231c0FD9083DA42eDd2BD4f041d0a54EF7BeE'
   },
   {
-    name: 'Arbitrum Rinkeby Testnet',
-    id: '421611',
-    address: '0x3925A9d5554508b65a6490c450FB294A9173948B'
+    name: 'Columbus',
+    id: '502',
+    address: '0xd8b75be9a47ffab0b5c27a143b911af7a7bf4076'
   },
   {
-    name: 'Rinkeby Testnet',
-    id: '4',
-    address: '0x877c5532B2a76148334CBfA32779A0b9ee414FBE'
+    name: 'Goerli',
+    id: '5',
+    address: '0xe02dF24d8dFdd37B21690DB30F4813cf6c4D9D93'
   },
   {
-    name: 'Ropsten Testnet',
-    id: '3',
-    address: '0x405005a015EA0E24889D6963447Bb0D646D91C83'
+    name: 'Polygon',
+    id: '137',
+    address: '0x8a093Cb94663994d19a778c7EA9161352a434c64'
+  },
+  {
+    name: 'Gnosis Chain',
+    id: '100',
+    address: '0xb63d48e9d1e51305a17F4d95aCa3637BBC181b44'
   }
 ];
 
@@ -236,7 +242,7 @@ export const parseDid = (did: string): ParsedDid => {
 export const getEthersProvider = async (
   basePath: string,
   network: string
-): Promise<ethers.providers.JsonRpcProvider> => {
+): Promise<providers.JsonRpcProvider> => {
   let providerUri: string | undefined;
 
   const { uri, encrypted } = await getNetworkProviderById(basePath, network);
@@ -259,7 +265,37 @@ export const getEthersProvider = async (
     providerUri = uri;
   }
 
-  return new ethers.providers.JsonRpcProvider(providerUri);
+  return new providers.JsonRpcProvider(providerUri);
+};
+
+// Get registered API key
+export const getApiKey = async (
+  basePath: string,
+  id: string
+): Promise<string> => {
+  let apiKey: string | undefined;
+
+  const { key, encrypted } = await getApiKeyById(basePath, id);
+
+  if (!key) {
+    throw new Error(
+      `API key #${id} is not found. Please add it to the project config using operation "--config --record apiKeys"`
+    );
+  }
+
+  if (encrypted) {
+    const { password } = await prompts({
+      type: 'password',
+      name: 'password',
+      message: `Enter the password for the encrypted API key`
+    });
+
+    apiKey = decrypt(key, password);
+  } else {
+    apiKey = key;
+  }
+
+  return apiKey;
 };
 
 // Prepare an ORGiD API for transactions on the ORG.JSON basis
@@ -287,11 +323,6 @@ export const prepareOrgIdApi = async (
   const networkConfig = getSupportedNetworkConfig(network);
   const provider = await getEthersProvider(basePath, network);
 
-  const orgIdContract = new OrgIdContract(
-    networkConfig.address,
-    provider
-  );
-
   // @todo Add support for other types of keys
   const keyPair = await promptKeyPair(basePath, 'ethereum');
 
@@ -307,6 +338,11 @@ export const prepareOrgIdApi = async (
       `The registered key has a different address "${signerAddress}" than the ORGiD owner "${owner}"`
     );
   }
+
+  const orgIdContract = new OrgIdContract(
+    networkConfig.address,
+    provider
+  );
 
   const { gasPrice } = await prompts([
     {

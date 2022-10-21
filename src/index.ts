@@ -1,5 +1,6 @@
 import './fixRandomSource';
 import { parseArguments } from './utils/env';
+import { printError } from './utils/console';
 
 // Operations API methods
 import { manageConfigRecords } from './api/projectConfig';
@@ -11,9 +12,6 @@ import { createOrgId } from './api/createOrgId';
 import { changeOrgJson } from './api/changeOrgJson';
 import { resolveOrgId } from './api/resolveOrgId';
 import { transferOwnership } from './api/transferOwnership';
-
-// Console helpers
-export * as console from './utils/console';
 
 // Main CLI handler
 export const cli = async (
@@ -78,3 +76,11 @@ export const cli = async (
       throw new Error(`Unknown operation type "${args['--operation']}"`);
   }
 };
+
+cli(process.cwd(), process.argv)
+  .catch(error => {
+    console.log(error);
+    printError(error.message);
+    process.exit(1);
+  })
+  .finally(() => process.exit(0));

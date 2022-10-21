@@ -8,7 +8,7 @@ import {
 import {
   updateOrgIdRecord
 } from './project';
-import { printInfo, printMessage, printObject, printWarn } from '../utils/console';
+import { printError, printInfo, printMessage, printObject, printWarn } from '../utils/console';
 import { changeOrgJson } from './changeOrgJson';
 
 export interface OrgIdCreationResult extends Omit<OrgIdData, 'tokenId'> {
@@ -80,8 +80,19 @@ export const createOrgId = async (
     orgIdVc,
     signer,
     gasPrice ? { gasPrice } : undefined,
-    txHash => {
+    async txHash => {
       printInfo(`\nTransaction hash: ${txHash}`);
+      try {
+        await updateOrgIdRecord(
+          basePath,
+          did,
+          {
+            txHash
+          }
+        );
+      } catch {
+        printError('Unable to update project file');
+      }
     }
   );
 

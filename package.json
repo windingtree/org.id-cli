@@ -3,22 +3,21 @@
   "version": "1.0.0-beta.50",
   "description": "The ORGiD command-line utility",
   "main": "dist/index.js",
-  "types": "dist/src/index.d.ts",
+  "types": "dist/index.d.ts",
   "publishConfig": {
     "access": "public"
   },
   "bin": {
-    "orgid": "bin/index.js"
+    "orgid": "dist/index.js"
   },
   "files": [
-    "dist",
-    "bin"
+    "dist"
   ],
   "scripts": {
     "lint": "npx eslint . --ext .ts",
     "test": "npx jest",
     "test:coverage": "npx jest --coverage",
-    "build": "rm -rf dist && npx webpack",
+    "build": "rm -rf dist && npx webpack --config webpack.config.js",
     "types": "mkdir -p ./src/schema/types && npx json2ts ./src/schema/project.json > ./src/schema/types/project.d.ts",
     "release:beta": "npx standard-version -p -s",
     "release:major": "npx standard-version -r major -s",
@@ -45,41 +44,39 @@
   "bugs": {
     "url": "https://github.com/windingtree/org.id-sdk.git/issues"
   },
-  "dependencies": {
-    "@windingtree/org.id-auth": "^1.0.0-beta.47",
-    "@windingtree/org.id-core": "^1.0.0-beta.47",
-    "@windingtree/org.id-resolver": "3.0.0-beta.18",
-    "@windingtree/org.id-utils": "^1.0.0-beta.47",
-    "@windingtree/org.json-schema": "1.0.2",
-    "@windingtree/org.json-utils": "^1.0.0-beta.47",
-    "arg": "5.0.1",
-    "chalk": "5.0.0",
-    "crypto-js": "4.1.1",
-    "ethers": "5.5.3",
-    "form-data": "4.0.0",
-    "jsome": "2.5.0",
-    "luxon": "2.3.0",
-    "prompts": "2.4.2"
-  },
   "devDependencies": {
-    "@types/clear": "0.1.2",
-    "@types/crypto-js": "4.1.0",
-    "@types/jest": "27.4.0",
-    "@types/luxon": "2.0.9",
-    "@types/node": "17.0.8",
-    "@types/prompts": "2.0.14",
-    "@typescript-eslint/eslint-plugin": "5.9.1",
-    "@typescript-eslint/parser": "5.9.1",
-    "eslint": "8.6.0",
-    "jest": "27.4.7",
-    "json-schema-to-typescript": "10.1.5",
-    "ts-jest": "27.1.2",
-    "ts-loader": "9.2.6",
-    "ts-node": "10.4.0",
-    "typescript": "4.5.4",
-    "webpack": "5.65.0",
-    "webpack-cli": "4.9.1",
-    "standard-version": "9.3.2",
-    "node-fetch": "3.0.0"
+    "@types/clear": "^0.1.2",
+    "@types/crypto-js": "^4.1.1",
+    "@types/jest": "^29.2.0",
+    "@types/luxon": "^3.0.2",
+    "@types/node": "^18.11.3",
+    "@types/prompts": "^2.4.1",
+    "@typescript-eslint/eslint-plugin": "^5.40.1",
+    "@typescript-eslint/parser": "^5.40.1",
+    "eslint": "^8.25.0",
+    "jest": "^29.2.1",
+    "json-schema-to-typescript": "^11.0.2",
+    "ts-jest": "^29.0.3",
+    "ts-loader": "^9.4.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^4.8.4",
+    "webpack": "^5.74.0",
+    "webpack-cli": "^4.10.0",
+    "standard-version": "^9.5.0",
+    "@windingtree/org.id-auth": "^1.1.0",
+    "@windingtree/org.id-core": "^1.1.0",
+    "@windingtree/org.id-resolver": "^3.0.1",
+    "@windingtree/org.id-utils": "^1.0.1",
+    "@windingtree/org.json-schema": "^1.0.2",
+    "@windingtree/org.json-utils": "^1.1.0",
+    "arg": "^5.0.2",
+    "chalk": "^5.1.2",
+    "crypto-js": "^4.1.1",
+    "ethers": "^5.7.2",
+    "form-data": "^4.0.0",
+    "jsome": "^2.5.0",
+    "luxon": "^3.0.4",
+    "prompts": "^2.4.2",
+    "web3.storage": "^4.4.0"
   }
 }

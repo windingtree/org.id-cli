@@ -64,6 +64,13 @@
           "items": {
             "$ref": "#/definitions/NetworkProviderConfigReference"
           }
+        },
+        "apisKeys": {
+          "description": "List of API keys",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ApiKeyConfigReference"
+          }
         }
       },
       "required": []
@@ -88,6 +95,29 @@
       "required": [
         "id",
         "uri",
+        "encrypted"
+      ]
+    },
+    "ApiKeyConfigReference": {
+      "description": "API key config record",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Name of a API key"
+        },
+        "key": {
+          "type": "string",
+          "description": "API key"
+        },
+        "encrypted": {
+          "type": "boolean",
+          "description": "Is key is encrypted"
+        }
+      },
+      "required": [
+        "id",
+        "key",
         "encrypted"
       ]
     },

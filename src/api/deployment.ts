@@ -33,13 +33,13 @@ export const deployFileIpfs = async (
 
   const fileToDeploy = path.resolve(basePath, args['--path']);
 
-  const { Hash } = await addToIpfs(fileToDeploy);
+  const cid = await addToIpfs(basePath, fileToDeploy);
 
   // Build a deployment record
   const deploymentRecord: ProjectDeploymentReference = {
     type: 'ipfs',
     path: fileToDeploy,
-    uri: `ipfs://${Hash}`,
+    uri: `ipfs://${cid}`,
     date: DateTime.now().toISO()
   };
 
@@ -54,7 +54,7 @@ export const deployFileIpfs = async (
   );
 
   if (remove) {
-    await removeFromIpfs(remove.uri.split('//')[1]);
+    await removeFromIpfs(basePath, remove.uri.split('//')[1]);
 
     printInfo(
       `Old deployment ${remove.uri} has been successfully unpinned`
