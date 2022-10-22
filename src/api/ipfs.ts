@@ -2,6 +2,7 @@
 // import FormData from 'form-data';
 // import { http } from '@windingtree/org.id-utils';
 // import { ExtraHeaders } from '@windingtree/org.id-utils/dist/http';
+import { http } from '@windingtree/org.id-utils';
 import { FileObject } from 'files-from-path';
 import { Web3Storage, getFilesFromPath, Filelike } from 'web3.storage';
 import { getApiKey } from './common';
@@ -32,13 +33,14 @@ export const removeFromIpfs = async (basePath: string, cid: string): Promise<voi
   // will be implemented later
 };
 
-export const getFromIpfs = async (basePath: string,cid: string): Promise<unknown> => {
-  const client = await createWeb3StorageClient(basePath);
-  const res = await client.get(cid);
-  if (!res || !res.ok) {
-    throw new Error(`Failed to get ${cid}`);
-  }
-  return await res.text();
+export const getFromIpfs = async (basePath: string, cid: string): Promise<unknown> => {
+  return http.request(
+    `https://w3s.link/ipfs/${cid}`,
+    'GET',
+    undefined,
+    undefined,
+    10000 // 10 sec timeout
+  );
 };
 
 // export const defaultIpfsApiHost = process.env.IPFS_API_HOST;

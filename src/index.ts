@@ -12,6 +12,7 @@ import { createOrgId } from './api/createOrgId';
 import { changeOrgJson } from './api/changeOrgJson';
 import { resolveOrgId } from './api/resolveOrgId';
 import { transferOwnership } from './api/transferOwnership';
+import { createJwt } from './api/jwt';
 
 // Main CLI handler
 export const cli = async (
@@ -34,6 +35,8 @@ export const cli = async (
       '--filetype': String,
       '--did': String,
       '--newOwner': String,
+      '--issuer': String,
+      '--audience': String,
     },
     argv
   );
@@ -69,6 +72,9 @@ export const cli = async (
       break;
     case 'transfer':
       await transferOwnership(basePath, args);
+      break;
+    case 'jwt':
+      await createJwt(basePath, args);
       break;
     case undefined:
       throw new Error('Operation type must be provided using "--operation" parameter');

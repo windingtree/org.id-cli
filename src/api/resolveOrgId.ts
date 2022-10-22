@@ -2,7 +2,8 @@ import type { ORGJSONVCNFT } from '@windingtree/org.json-schema/types/orgVc';
 import type {
   ResolverOptions,
   FetcherResolver,
-  FetcherConfig
+  FetcherConfig,
+  OrgIdResolverAPI
 } from '@windingtree/org.id-resolver';
 import type { ParsedArgv } from '../utils/env';
 import {
@@ -18,21 +19,13 @@ import {
 import { getFromIpfs } from './ipfs';
 import { printInfo, printWarn, printObject } from '../utils/console';
 
-export const resolveOrgId = async (
+export const initOrgIdResolver = async (
   basePath: string,
-  args: ParsedArgv
-): Promise<void> => {
+  did: string
+): Promise<OrgIdResolverAPI> => {
 
-  if (!args['--did']) {
-    throw new Error(
-      'ORGiD DID must be provided using "--did" option'
-    );
-  }
-
-  const { network } = parseDid(args['--did']);
-
+  const { network } = parseDid(did);
   const provider = await getEthersProvider(basePath, network);
-
   const { address } = getSupportedNetworkConfig(network);
 
   const chainConfig = buildEvmChainConfig(
@@ -63,14 +56,28 @@ export const resolveOrgId = async (
     ]
   };
 
-  const resolver = OrgIdResolver(resolverOptions);
+  return OrgIdResolver(resolverOptions);
+};
+
+export const resolveOrgId = async (
+  basePath: string,
+  args: ParsedArgv
+): Promise<void> => {
+
+  if (!args['--did']) {
+    throw new Error(
+      'ORGiD DID must be provided using "--did" option'
+    );
+  }
+
+  const resolver = await initOrgIdResolver(basePath, args['--did']);
 
   const didResponse = await resolver.resolve(args['--did']);
 
   // Check the response
   if (didResponse.didDocument === null) {
     printWarn(
-      `ORGiD with DID: "${args['--did']}" has finished with the error:`
+      `ORGiD with DID: "${args['--did']}" has been resolved with the error:`
     );
     printWarn(didResponse.didResolutionMetadata.error || 'Unknown error');
   } else {
