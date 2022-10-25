@@ -16,11 +16,20 @@ export interface CliSpec extends Spec {
   '--nftImage': StringConstructor;
   '--path': StringConstructor;
   '--deploy': StringConstructor;
-  '--keytype': StringConstructor;
+  '--keyType': StringConstructor;
   '--record': StringConstructor;
   '--filetype': StringConstructor;
   '--did': StringConstructor;
   '--newOwner': StringConstructor;
+  '--issuer': StringConstructor;
+  '--audience': StringConstructor;
+  '--expiration': StringConstructor;
+  '--scope': StringConstructor;
+  '--pubPem': StringConstructor;
+  '--privPem': StringConstructor;
+  '--addToOrgId': StringConstructor;
+  '--isDelegated': StringConstructor;
+  '--controller': StringConstructor;
 }
 
 export type ParsedArgv = Result<CliSpec>;

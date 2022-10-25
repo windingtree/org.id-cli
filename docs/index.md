@@ -85,14 +85,15 @@ This operation allows adding network providers with their JSON RPC APIs. When yo
 
 ## Keys management
 
-**`--operation keys:import --keytype ethereum`**
+- **`--operation keys:import --keytype ethereum`**
+- **`--operation keys:import --keytype pem`**
 
-> Currently, `ethereum` key pair type is the only supported. More key pairs types will be added soon.
+> Currently, `ethereum` and `EC PEM` keys pair type are the only supported.
 
 The CLI is allows to add key pair in the following format:
 
-- `publicKey`: account address
-- `privateKey`: account private key. For example, you can export this key from Metamask wallet. When you add a private key you will be prompted to set a password to encrypt this sensitive data
+- `publicKey`: account address (or EC PEM)
+- `privateKey`: account private key. For example, you can export this key from Metamask wallet. When you add a private key you will be prompted to set a password to encrypt this sensitive data (or EC PEM)
 - `tag`: unique key id that will be used across operations and verification methods
 
 > When you need to update a key data just use the same `tag` and a key pair record will be overwritten.

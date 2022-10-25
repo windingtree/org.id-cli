@@ -25,6 +25,28 @@ export const createJwt = async (
     );
   }
 
+  let expiration: number | undefined;
+
+  if (args['--expiration']) {
+    expiration = Number(args['--expiration']);
+
+    if (expiration <= Date.now()) {
+      throw new Error(
+        'Invalid "--expiration" value provided. Expiration cannot be in the past'
+      );
+    }
+  }
+
+  let scope: string[] | undefined;
+
+  if (args['--scope']) {
+    try {
+      scope = args['--scope'].split(',');
+    } catch (error) {
+      throw new Error('Invalid "--scope" value');
+    }
+  }
+
   const resolver = await initOrgIdResolver(basePath, args['--issuer']);
 
   const { didDocument, didResolutionMetadata } = await resolver.resolve(
@@ -120,8 +142,8 @@ export const createJwt = async (
     signer,
     args['--issuer'],
     args['--audience'],
-    undefined,
-    undefined
+    scope,
+    expiration
   );
 
   printInfo(`JWT: ${token}`);

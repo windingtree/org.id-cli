@@ -9,13 +9,15 @@ import type {
 import prompts from 'prompts';
 import { ethers } from 'ethers';
 import { DateTime } from  'luxon';
-import { vc, keys } from '@windingtree/org.id-auth';
+import { vc } from '@windingtree/org.id-auth';
 import { object as objectUtil } from '@windingtree/org.id-utils';
 import { read, write } from './fs';
 import { deployFileIpfs } from './deployment';
-import { addVcToProject } from './project';
-import { promptKeyPair, promptOrgId } from './common';
+import { addVcToProject, getKeyPairsFromProjectByTag } from './project';
+import { decrypt, promptKeyPair, promptOrgId } from './common';
 import { printInfo, printMessage } from '../utils/console';
+import { parseDid } from '@windingtree/org.id-utils/dist/parsers';
+import { JWK } from '@windingtree/org.id-auth/dist/keys';
 
 // Extract verification method from the orgJson
 export const fetchVerificationMethod = (
@@ -217,9 +219,9 @@ export const signWithEcKey = async (
     );
   }
 
-  const isDelegate = !!capabilityDelegation.filter(
+  const isDelegate = !!capabilityDelegation.find(
     id => id === verificationMethod.id
-  )[0];
+  );
 
   if (!isDelegate) {
     throw new Error(
@@ -227,15 +229,32 @@ export const signWithEcKey = async (
     );
   }
 
-  const privateKeyRaw = process.env.ACCOUNT_KEY as string;
+  const { fragment } = parseDid(verificationMethod.id);
 
-  if (!privateKeyRaw) {
+  if (!fragment) {
     throw new Error(
-      'Verifiable credential signer private key must be provided using "ACCOUNT_KEY" environment variable'
+      `Verification method tag not found in the ${verificationMethod.id}`
     );
   }
 
-  const privateKey = await keys.importKeyPrivatePem(privateKeyRaw);
+  const keyPair = await getKeyPairsFromProjectByTag(basePath, fragment);
+
+  if (!keyPair) {
+    throw new Error(
+      `Keys pair with tag "${fragment}" not registered yet.`+
+      'Please register it fist using "--operation keys:import" command'
+    );
+  }
+
+  const { password } = await prompts(
+    {
+      type: 'password',
+      name: 'password',
+      message: 'Please provide an decryption password for keys storage'
+    }
+  );
+
+  const privateKeyRaw = decrypt(keyPair.privateKey, password);
 
   return vc.createVC(
     verificationMethod.id,
@@ -243,7 +262,7 @@ export const signWithEcKey = async (
   )
     .setCredentialSubject(orgJson)
     .setNftMetaData(nftMetadata)
-    .sign(privateKey) as Promise<ORGJSONVCNFT>;
+    .sign(JSON.parse(privateKeyRaw) as JWK) as Promise<ORGJSONVCNFT>;
 };
 
 // Create signed version of the ORG.JSON in the form of VC
@@ -282,7 +301,7 @@ export const createSignedOrgJson = async (
 
     if (!subject.verificationMethod) {
       throw new Error(
-        'Nor "--method" nor "orgJson.verificationMethods" found. Verification method Id must be provided using "--method" option'
+        '"orgJson.verificationMethods" not found in the ORG.JSON file'
       );
     }
 

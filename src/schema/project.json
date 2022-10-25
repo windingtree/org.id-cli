@@ -248,7 +248,8 @@
           "type": "string",
           "description": "Type of key pair",
           "enum": [
-            "ethereum"
+            "ethereum",
+            "pem"
           ]
         },
         "tag": {
@@ -256,14 +257,7 @@
           "description": "A unique key pair tag"
         },
         "publicKey": {
-          "oneOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "object"
-            }
-          ],
+          "type": "string",
           "description": "Public key"
         },
         "privateKey": {

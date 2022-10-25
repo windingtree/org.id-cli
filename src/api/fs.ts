@@ -1,16 +1,40 @@
 import fs from 'fs';
 import path from 'path';
 
+// Check is file exists
+export const isFileExists = (
+  filePath: string
+): Promise<boolean> => new Promise(
+  (resolve) => {
+
+    fs.access(
+      filePath,
+      fs.constants.F_OK,
+      error => {
+        if (error) {
+          return resolve(false);
+        }
+        resolve(true);
+      }
+    )
+  }
+);
+
 // Reads file
-export const read = (
+export const read = <T = string>(
   basePath: string,
   filePath: string,
   isJson = false
-): Promise<string | unknown> => new Promise(
+): Promise<T> => new Promise(
   (resolve, reject) => {
+    const savedFilePath = path.resolve(basePath, filePath)
+
+    if (!isFileExists(savedFilePath)) {
+      throw new Error(`File ${savedFilePath} not found or not readable`);
+    }
 
     fs.readFile(
-      path.resolve(basePath, filePath),
+      savedFilePath,
       {
         encoding: 'utf8',
         flag: 'r'
@@ -27,11 +51,13 @@ export const read = (
           try {
             data = JSON.parse(data);
           } catch (error) {
-            throw new Error(`Unable to parse from the payload as JSON by path ${filePath}`);
+            throw new Error(
+              `Unable to parse from the payload as JSON by path ${filePath}`
+            );
           }
         }
 
-        resolve(data);
+        resolve(data as T);
       }
     );
   }
@@ -83,25 +109,6 @@ export const createDir = (
           return reject(error);
         }
         resolve();
-      }
-    )
-  }
-);
-
-// Check is file exists
-export const isFileExists = (
-  filePath: string
-): Promise<boolean> => new Promise(
-  (resolve) => {
-
-    fs.access(
-      filePath,
-      fs.constants.F_OK,
-      error => {
-        if (error) {
-          return resolve(false);
-        }
-        resolve(true);
       }
     )
   }

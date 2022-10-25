@@ -266,7 +266,7 @@ export const getOrgIdsFromProject = async (
   return ((object.getDeepValue(project, 'orgIds') || []) as ProjectOrgIdsReference[]);
 };
 
-// Get key pair by its tag from the project file
+// Get key pair by its type from the project file
 export const getKeyPairsFromProject = async (
   basePath: string,
   type?: string
@@ -274,6 +274,16 @@ export const getKeyPairsFromProject = async (
   const project = await getProjectFile(basePath);
   return ((object.getDeepValue(project, 'keys') || []) as ProjectKeysReference[])
     .filter(o => type ? o.type === type : true);
+};
+
+// Get key pair by its tag from the project file
+export const getKeyPairsFromProjectByTag = async (
+  basePath: string,
+  tag: string
+): Promise<ProjectKeysReference | undefined> => {
+  const project = await getProjectFile(basePath);
+  return ((object.getDeepValue(project, 'keys') || []) as ProjectKeysReference[])
+    .find(o => o.tag === tag);
 };
 
 // Get list of available network providers

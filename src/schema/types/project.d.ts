@@ -187,7 +187,7 @@ export interface ProjectKeysReference {
   /**
    * Type of key pair
    */
-  type: "ethereum";
+  type: "ethereum" | "pem";
   /**
    * A unique key pair tag
    */
@@ -195,11 +195,7 @@ export interface ProjectKeysReference {
   /**
    * Public key
    */
-  publicKey:
-    | string
-    | {
-        [k: string]: unknown;
-      };
+  publicKey: string;
   /**
    * Encrypted private key (encrypted)
    */
