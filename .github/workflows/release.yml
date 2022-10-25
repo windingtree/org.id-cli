@@ -13,7 +13,7 @@ jobs:
         with:
           node-version: 18
           registry-url: https://registry.npmjs.org/
-      - run: yarn install
+      - run: yarn install --ignore-engines
       - run: yarn build
       - run: npm publish --access public
         env:
