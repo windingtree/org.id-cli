@@ -61,3 +61,5 @@ orgid --operation create
 ```
 
 > You will be prompted for private key of one of the multisig wallet owners account. This key will not be saved in the project and used for the transaction signing only.
+
+> In the Gnosis Safe transactions queue will be added two transactions that have to be executed.
