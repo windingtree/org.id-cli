@@ -187,7 +187,7 @@ export interface ProjectKeysReference {
   /**
    * Type of key pair
    */
-  type: "ethereum" | "pem";
+  type: "ethereum" | "pem" | "multisig";
   /**
    * A unique key pair tag
    */
@@ -200,6 +200,10 @@ export interface ProjectKeysReference {
    * Encrypted private key (encrypted)
    */
   privateKey: string;
+  /**
+   * Safe transactions URI
+   */
+  multisig?: string;
   /**
    * Creation/update date in the ISO format
    */

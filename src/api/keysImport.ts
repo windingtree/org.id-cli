@@ -10,7 +10,7 @@ import {
   addKeyPairToProject, addOrgIdToProject
 } from './project';
 import { printInfo } from '../utils/console';
-import { encrypt, promptOrgId } from './common';
+import { encrypt, promptKeyPair, promptOrgId } from './common';
 import {
   createJWK,
   importKeyPrivatePem,
@@ -89,8 +89,135 @@ export const importEthereum = async (basePath: string): Promise<ProjectKeysRefer
   return keyPairRecord;
 };
 
+export const addToOrgJson = async (
+  basePath: string,
+  args: ParsedArgv
+): Promise<void> => {
+  printInfo('Adding of verification method to an ORG.JSON...\n');
+
+  if (!args['--keyType']) {
+    throw new Error(
+      'Key pair type must be provided using "--keyType" option'
+    );
+  }
+
+  const orgId = await promptOrgId(basePath);
+
+  if (!orgId) {
+    throw new Error('No registered ORGiDs found in the project');
+  }
+
+  const {
+    did,
+    orgJson,
+    salt,
+    owner,
+    created
+  } = orgId;
+
+  if (!orgJson) {
+    throw new Error(
+      `Link to the ORG.JSON file not found for the selected ${did}`
+    );
+  }
+
+  const orgJsonObj = await read<ORGJSON>(basePath, orgJson, true);
+
+  const controller = args['--controller'] || did;
+
+  const parsedController = parseDid(controller);
+
+  if (!parsedController.did || !parsedController.network) {
+    throw new Error(`Invalid controller did: ${controller}`);
+  }
+
+  const projectKey = await promptKeyPair(
+    basePath,
+    args['--keyType']
+  );
+
+  if (!projectKey) {
+    throw new Error('Key pair not been selected');
+  }
+
+  let verificationMethod: VerificationMethodReference;
+  const verificationMethodId = `${did}#${projectKey.tag}`;
+
+  switch (args['--keyType']) {
+    case 'ethereum':
+      verificationMethod = createVerificationMethodWithBlockchainAccountId(
+        verificationMethodId,
+        controller,
+        'eip155',
+        parsedController.network,
+        projectKey.publicKey
+      );
+      break;
+    case 'pem':
+      verificationMethod = await createVerificationMethodWithKey(
+        verificationMethodId,
+        controller,
+        projectKey.publicKey as unknown as JWK
+      );
+      break;
+    default:
+      throw new Error(
+        `It is not possible to create verification method using "${args['--keyType']}" type of key`
+      );
+  }
+
+  if (!orgJsonObj.verificationMethod) {
+    orgJsonObj.verificationMethod = [];
+  }
+
+  const isMethodExists = orgJsonObj.verificationMethod.find(
+    v => v.id === verificationMethodId
+  );
+
+  if (isMethodExists) {
+    orgJsonObj.verificationMethod = orgJsonObj.verificationMethod.map(
+      v => {
+        if (v.id ) {
+          return verificationMethod;
+        }
+        return v;
+      }
+    );
+  } else {
+    orgJsonObj.verificationMethod.push(verificationMethod);
+  }
+
+  if (args['--delegated']) {
+    const delegates = new Set(orgJsonObj.capabilityDelegation);
+    delegates.add(verificationMethodId);
+    orgJsonObj.capabilityDelegation = Array.from(delegates);
+  }
+
+  const outputOrgJsonFile = await write(
+    basePath,
+    orgJson,
+    JSON.stringify(orgJsonObj, null, 2)
+  );
+
+  const orgIdRecord: ProjectOrgIdsReference = {
+    did,
+    salt,
+    owner,
+    orgJson: outputOrgJsonFile,
+    created,
+    date: DateTime.now().toISO()
+  };
+
+  await addOrgIdToProject(basePath, orgIdRecord);
+
+  printInfo(
+    `"verificationMethod" with Id ${verificationMethod.id} has been added.\n`+
+    `ORG.JSON file for ${did} has been successfully updated in the project.`
+  );
+};
+
 // Import keys pair in PEM format
-export  const importPem = async (
+export const importPem = async (
   basePath: string,
   args: ParsedArgv
 ): Promise<ProjectKeysReferenceWithJwk> => {
@@ -153,6 +280,41 @@ export  const importPem = async (
   };
 };
 
+export const importMultisig = async (
+  basePath: string
+): Promise<ProjectKeysReference> => {
+  const { tag, multisig } = await prompts([
+    {
+      type: 'text',
+      name: 'tag',
+      message: 'Please enter an unique key tag'
+    },
+    {
+      type: 'text',
+      name: 'multisig',
+      message: 'Please enter Safe wallet address (with net prefix)'
+    }
+  ]);
+
+  const keyPairRecord = await addKeyPairToProject(
+    basePath,
+    {
+      type: 'multisig',
+      tag,
+      publicKey: '',
+      privateKey: '',
+      multisig,
+      date: DateTime.now().toISO()
+    }
+  );
+
+  printInfo(
+    `Multisig "key" with tag "${tag}" has been successful imported\n`
+  );
+
+  return keyPairRecord;
+};
+
 // Import key
 export const keysImport = async (
   basePath: string,
@@ -165,134 +327,18 @@ export const keysImport = async (
     );
   }
 
-  let projectKey: ProjectKeysReference | undefined;
-  let projectKeyJwk: ProjectKeysReferenceWithJwk | undefined;
-
   switch (args['--keyType']) {
     case 'ethereum':
-      projectKey = await importEthereum(basePath);
+      await importEthereum(basePath);
       break;
     case 'pem':
-      projectKeyJwk = await importPem(basePath, args);
+      await importPem(basePath, args);
       break;
-    // @todo Add more types
+    case 'multisig':
+      await importMultisig(basePath);
+      return;
+      break;
     default:
       throw new Error(`Unknown key pair type: "${args['--keyType']}"`)
-  }
-
-  if (args['--addToOrgId']) {
-    printInfo('Adding of verification method to an ORG.JSON...');
-
-    const orgId = await promptOrgId(basePath);
-
-    if (orgId) {
-      throw new Error('No registered ORGiDs found in the project');
-    }
-
-    const {
-      did,
-      orgJson,
-      salt,
-      owner,
-      created
-    } = orgId;
-
-    if (!orgJson) {
-      throw new Error(
-        `Link to the ORG.JSON file not found for the selected ${did}`
-      );
-    }
-
-    const orgJsonObj = await read<ORGJSON>(basePath, orgJson, true);
-
-    const controller = args['--controller'] || did;
-
-    const parsedController = parseDid(controller);
-
-    if (!parsedController.did || !parsedController.network) {
-      throw new Error(`Invalid controller did: ${controller}`);
-    }
-
-    let verificationMethod: VerificationMethodReference;
-    let verificationMethodId: string;
-
-    if (args['--keyType'] === 'ethereum') {
-
-      if (!projectKey) {
-        throw new Error('Invalid projectKey');
-      }
-
-      verificationMethodId = `${did}#${projectKey.tag}`;
-
-      verificationMethod = createVerificationMethodWithBlockchainAccountId(
-        verificationMethodId,
-        controller,
-        'eip155',
-        parsedController.network,
-        projectKey.publicKey
-      );
-    } else {
-
-      if (!projectKeyJwk) {
-        throw new Error('Invalid projectKeyJwk');
-      }
-
-      verificationMethodId = `${did}#${projectKeyJwk.tag}`;
-
-      verificationMethod = await createVerificationMethodWithKey(
-        verificationMethodId,
-        controller,
-        projectKeyJwk.publicJwk
-      );
-    }
-
-    if (args['--keyType'] === 'pem' || args['--isDelegated']) {
-      const delegates = new Set(orgJsonObj.capabilityDelegation);
-      delegates.add(verificationMethodId);
-      orgJsonObj.capabilityDelegation = Array.from(delegates);
-    }
-
-    if (!orgJsonObj.verificationMethod) {
-      orgJsonObj.verificationMethod = [];
-    }
-
-    const isMethodExists = orgJsonObj.verificationMethod.find(
-      v => v.id === verificationMethodId
-    );
-
-    if (isMethodExists) {
-      orgJsonObj.verificationMethod = orgJsonObj.verificationMethod.map(
-        v => {
-          if (v.id ) {
-            return verificationMethod;
-          }
-          return v;
-        }
-      );
-    } else {
-      orgJsonObj.verificationMethod.push(verificationMethod);
-    }
-
-    const outputOrgJsonFile = await write(
-      basePath,
-      orgJson,
-      JSON.stringify(orgJsonObj, null, 2)
-    );
-
-    const orgIdRecord: ProjectOrgIdsReference = {
-      did,
-      salt,
-      owner,
-      orgJson: outputOrgJsonFile,
-      created,
-      date: DateTime.now().toISO()
-    };
-
-    await addOrgIdToProject(basePath, orgIdRecord);
-
-    printInfo(
-      `"verificationMethod" with Id ${verificationMethod.id} has been added.\n`+
-      `ORG.JSON file for ${did} has been successfully updated in the project.`
-    );
   }
 };

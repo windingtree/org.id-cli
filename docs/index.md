@@ -86,7 +86,8 @@ This operation allows adding network providers with their JSON RPC APIs. When yo
 ## Keys management
 
 - **`--operation keys:import --keytype ethereum`**
-- **`--operation keys:import --keytype pem`**
+- **`--operation keys:import --keytype pem --pubPem <path> --privPem <path>`**
+- **`--operation keys:import --keytype multisig`**
 
 > Currently, `ethereum` and `EC PEM` keys pair type are the only supported.
 

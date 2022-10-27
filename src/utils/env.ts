@@ -27,8 +27,7 @@ export interface CliSpec extends Spec {
   '--scope': StringConstructor;
   '--pubPem': StringConstructor;
   '--privPem': StringConstructor;
-  '--addToOrgId': StringConstructor;
-  '--isDelegated': StringConstructor;
+  '--delegated': StringConstructor;
   '--controller': StringConstructor;
 }
 

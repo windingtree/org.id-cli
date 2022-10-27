@@ -7,7 +7,7 @@ import type {
 import { KnownProvider, OrgIdContract } from '@windingtree/org.id-core';
 import { AES, enc } from 'crypto-js';
 import { Wallet, utils as etherUtils, Signer, providers } from 'ethers';
-import { regexp } from '@windingtree/org.id-utils';
+import { http, parsers, regexp } from '@windingtree/org.id-utils';
 import prompts from 'prompts';
 import {
   getKeyPairsFromProject,
@@ -16,6 +16,8 @@ import {
   getApiKeyById
 } from './project';
 import { read } from './fs';
+import { ORGJSONVCNFT } from '@windingtree/org.json-schema/types/orgVc';
+import { getFromIpfs } from './ipfs';
 
 export interface ParsedDid {
   did: string;
@@ -122,54 +124,50 @@ export const promptKeyPair = async (
   basePath: string,
   type?: string
 ): Promise<ProjectKeysReference | undefined> => {
+  const keyPairRecords = await getKeyPairsFromProject(basePath, type);
 
-  const { useRegisteredAddress } = await prompts({
+  const { keyPair } = await prompts({
     type: 'select',
-    name: 'useRegisteredAddress',
-    message: 'Do you want to use registered key pair?',
-    choices: [
-      {
-        title: 'Yes',
-        value: true
-      },
-      {
-        title: 'No',
-        value: false
-      }
-    ],
+    name: 'keyPair',
+    message: 'Choose a key',
+    choices: keyPairRecords.map(
+      k => ({
+        title: k.tag,
+        value: k
+      })
+    ),
     initial: 0
   });
 
-  let keyPair: ProjectKeysReference | undefined;
+  if (!keyPair) {
+    throw new Error('Key pair not been selected');
+  }
 
-  if (useRegisteredAddress) {
+  const keys = keyPair as ProjectKeysReference;
 
-    const keyPairRecords = await getKeyPairsFromProject(basePath, type);
-
-    const keyPairResult = await prompts({
-      type: 'select',
-      name: 'keyPair',
-      message: 'Choose a key',
-      choices: keyPairRecords.map(
-        k => ({
-          title: k.tag,
-          value: k
-        })
-      ),
-      initial: 0
-    });
-
+  if (keys.type !== 'multisig') {
     const { password } = await prompts({
       type: 'password',
       name: 'password',
-      message: `Enter the password for the key pair "${keyPairResult.keyPair.tag}"`
+      message: `Enter the password for the key pair "${keys.tag}"`
     });
 
-    keyPair = keyPairResult.keyPair as ProjectKeysReference;
-    keyPair.privateKey = decrypt(keyPair.privateKey, password);
+    if (keys.type === 'pem') {
+      try {
+        keys.publicKey = JSON.parse(decrypt(keys.publicKey, password));
+        keys.privateKey = JSON.parse(decrypt(keys.privateKey, password));
+      } catch (err) {
+        throw new Error(`Unable to decode key pair with tag: ${keys.tag}`);
+      }
+    } else {
+      keys.privateKey = decrypt(
+        keys.privateKey,
+        password
+      );
+    }
   }
 
-  return keyPair;
+  return keys;
 };
 
 // Prompt for ORGiDs
@@ -298,10 +296,36 @@ export const getApiKey = async (
   return apiKey;
 };
 
+// Create OrgId contract instance
+export const createOrgIdInstance = async (
+  basePath: string,
+  orgId: ProjectOrgIdsReference
+): Promise<OrgIdContract> => {
+  if (!orgId || !orgId.orgJson) {
+    throw new Error('Chosen ORGiD does not have registered ORG.JSON yet.');
+  }
+
+  const orgJsonSource = await read(
+    basePath,
+    orgId.orgJson,
+    true
+  ) as ORGJSON;
+
+  const { network } = parseDid(orgJsonSource.id);
+  const networkConfig = getSupportedNetworkConfig(network);
+  const provider = await getEthersProvider(basePath, network);
+
+  return new OrgIdContract(
+    networkConfig.address,
+    provider
+  );
+};
+
 // Prepare an ORGiD API for transactions on the ORG.JSON basis
 export const prepareOrgIdApi = async (
   basePath: string,
-  orgId: ProjectOrgIdsReference
+  orgId: ProjectOrgIdsReference,
+  keyPair: ProjectKeysReference
 ): Promise<OrgIdApi> => {
 
   const {
@@ -322,9 +346,6 @@ export const prepareOrgIdApi = async (
   const { network, orgId: id } = parseDid(orgJsonSource.id);
   const networkConfig = getSupportedNetworkConfig(network);
   const provider = await getEthersProvider(basePath, network);
-
-  // @todo Add support for other types of keys
-  const keyPair = await promptKeyPair(basePath, 'ethereum');
 
   if (!keyPair) {
     throw new Error('Unable to get registered key pair');
@@ -374,5 +395,21 @@ export const prepareOrgIdApi = async (
     signer,
     id,
     gasPrice: gasPrice ? etherUtils.parseUnits(gasPrice, 'gwei') : undefined
+  }
+};
+
+export const downloadOrgIdVc = async (
+  basePath: string,
+  path: string
+): Promise<ORGJSONVCNFT> => {
+  const { uri, type } = parsers.parseUri(path);
+
+  switch (type) {
+    case 'ipfs':
+      return await getFromIpfs(basePath, uri) as ORGJSONVCNFT;
+    case 'http':
+      return await http.request(uri, 'GET') as ORGJSONVCNFT;
+    default:
+      throw new Error(`Unknown ORGiD VC URI type ${type}`);
   }
 };

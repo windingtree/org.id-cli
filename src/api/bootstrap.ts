@@ -7,7 +7,7 @@ import type { AnySchema } from '@windingtree/org.id-utils/dist/object';
 import type { ORGJSON } from '@windingtree/org.json-schema/types/org.json';
 import { org as orgJsonSchema } from '@windingtree/org.json-schema';
 import { createVerificationMethodWithBlockchainAccountId } from '@windingtree/org.json-utils';
-import { object, regexp, common } from '@windingtree/org.id-utils';
+import { object, common } from '@windingtree/org.id-utils';
 import { printInfo, printWarn, printObject } from '../utils/console';
 import { DateTime } from  'luxon';
 import prompts from 'prompts';
@@ -17,6 +17,7 @@ import {
 } from './project';
 import { blockchainNetworks, promptKeyPair } from './common';
 import { write } from './fs';
+import { parseSafeAddress } from './multisig';
 
 const entityTypeSchemaPath = {
   legalEntity: 'definitions.LegalEntityReference',
@@ -119,7 +120,9 @@ export const promptSchema = async (
   }
 
   return out;
-}
+};
+
+
 
 // Operation that helps to bootstrap a new organization profile
 export const bootstrapOrgJson = async (
@@ -139,7 +142,7 @@ export const bootstrapOrgJson = async (
       {
         type: 'select',
         name: 'networkId',
-        message: 'Please choose a blockchain network where the ORGiD should be issued and press `Enter`',
+        message: 'Please choose a blockchain network where the ORGiD should be issued',
         choices: blockchainNetworks.map(b => ({
           title: b.name,
           value: b.id
@@ -152,30 +155,26 @@ export const bootstrapOrgJson = async (
   let accountAddress: string;
 
   const keyPairRecord = await promptKeyPair(
-    basePath,
-    'ethereum'
+    basePath
   );
 
-  if (keyPairRecord) {
-
-    accountAddress = keyPairRecord.publicKey as string;
-  } else {
-
-    const accountResult = await prompts({
-      type: 'text',
-      name: 'accountAddress',
-      message: 'Enter your Ethereum account address that will be used for issuing of the ORGiD',
-      validate: value =>
-        regexp.ethereumAddress.exec(value) !== null
-          ? true
-          : 'Value must be a valid Ethereum address'
-    });
-
-    accountAddress = accountResult.accountAddress
+  if (!keyPairRecord) {
+    throw new Error('Key pair not selected');
   }
 
-  // Normalizing the address
-  accountAddress = ethersUtils.getAddress(accountAddress);
+  switch (keyPairRecord.type) {
+    case 'ethereum':
+      accountAddress = ethersUtils.getAddress(keyPairRecord.publicKey);
+      break;
+    case 'multisig':
+      if (!keyPairRecord.multisig) {
+        throw new Error('Invalid multisig key');
+      }
+      accountAddress = ethersUtils.getAddress(parseSafeAddress(keyPairRecord.multisig).address);
+      break;
+    default:
+      throw new Error(`Key pair of type "${keyPairRecord.type}" cannot be used for issuing an ORGiD`)
+  }
 
   const salt = common.generateSalt();
   const orgIdHash = common.generateOrgIdWithAddress(accountAddress, salt);
@@ -187,10 +186,6 @@ ORGiD owner address: ${accountAddress}
 ORGiD DID: ${did}\n`
   );
 
-  const verificationMethodTag = keyPairRecord
-    ? keyPairRecord.tag
-    : 'key1';
-
   const orgJsonTemplate: ORGJSON = {
     '@context': [
       'https://www.w3.org/ns/did/v1',
@@ -199,14 +194,18 @@ ORGiD DID: ${did}\n`
     id: did,
     created: DateTime.now().toISO(),
     verificationMethod: [
-      createVerificationMethodWithBlockchainAccountId(
-        `${did}#${verificationMethodTag}`,
-        did,
-        'eip155',
-        networkId,
-        accountAddress,
-        'Default verification method'
-      )
+      ...(keyPairRecord.type === 'ethereum'
+        ? [
+          createVerificationMethodWithBlockchainAccountId(
+            `${did}#${keyPairRecord.tag}`,
+            did,
+            'eip155',
+            networkId,
+            accountAddress,
+            'Default verification method'
+          )
+        ]
+        : [])
     ]
   };
 

@@ -7,7 +7,7 @@ import { manageConfigRecords } from './api/projectConfig';
 import { createSignedOrgJson } from './api/orgJson';
 import { deployFileIpfs } from './api/deployment';
 import { bootstrapOrgJson } from './api/bootstrap';
-import { keysImport } from './api/keysImport';
+import { addToOrgJson, keysImport } from './api/keysImport';
 import { createOrgId } from './api/createOrgId';
 import { changeOrgJson } from './api/changeOrgJson';
 import { resolveOrgId } from './api/resolveOrgId';
@@ -41,8 +41,7 @@ export const cli = async (
       '--scope': String,
       '--pubPem': String,
       '--privPem': String,
-      '--addToOrgId': String,
-      '--isDelegated': String,
+      '--delegated': String,
       '--controller': String,
     },
     argv
@@ -68,8 +67,11 @@ export const cli = async (
     case 'keys:import':
       await keysImport(basePath, args);
       break;
+    case 'keys:add':
+      await addToOrgJson(basePath, args);
+      break;
     case 'create':
-      await createOrgId(basePath, args);
+      await createOrgId(basePath);
       break;
     case 'update':
       await changeOrgJson(basePath, args);
@@ -91,9 +93,8 @@ export const cli = async (
 };
 
 cli(process.cwd(), process.argv)
+  .then(() => process.exit(0))
   .catch(error => {
-    console.log(error);
     printError(error.message);
     process.exit(1);
-  })
-  .finally(() => process.exit(0));
+  });

@@ -249,7 +249,8 @@
           "description": "Type of key pair",
           "enum": [
             "ethereum",
-            "pem"
+            "pem",
+            "multisig"
           ]
         },
         "tag": {
@@ -263,6 +264,10 @@
         "privateKey": {
           "type": "string",
           "description": "Encrypted private key (encrypted)"
+        },
+        "multisig": {
+          "type": "string",
+          "description": "Safe transactions URI"
         },
         "date": {
           "description": "Creation/update date in the ISO format",
