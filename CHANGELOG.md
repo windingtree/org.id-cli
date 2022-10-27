@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [3.0.0](https://github.com/windingtree/org.id-sdk/compare/v1.2.0...v3.0.0) (2022-10-27)
+
+
+### Features
+
+* Added support for creation of an ORGiD using multisig wallet ([8dd9b11](https://github.com/windingtree/org.id-sdk/commit/8dd9b11cb0dc7befe344e2f96a684978c2e05e78))
+
 ## [1.1.0](https://github.com/windingtree/org.id-sdk/compare/v1.0.0...v1.1.0) (2022-10-22)
 
 
