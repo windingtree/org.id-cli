@@ -74,13 +74,13 @@ export const cli = async (
       await createOrgId(basePath);
       break;
     case 'update':
-      await changeOrgJson(basePath, args);
+      await changeOrgJson(basePath);
       break;
     case 'resolve':
       await resolveOrgId(basePath, args);
       break;
-    case 'transfer':
-      await transferOwnership(basePath, args);
+    // case 'transfer':
+    //   await transferOwnership(basePath, args);
       break;
     case 'jwt':
       await createJwt(basePath, args);
