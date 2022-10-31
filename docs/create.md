@@ -1,24 +1,12 @@
-# Creation of ORGiD compatible with multisig ownership
+# Creation of ORGiD with delegated key
 
-## Create Gnosis Safe multisig
+> ORGiD VC can be signed using delegated key (verification method). Here the steps of how to make it in the right way
 
-https://gnosis-safe.io/app
+## Generation and registration of keys
 
-Use network supported by ORGiD:
+### Registration of EOA key pair
 
-- Gnosis Chain
-- Polygon
-- Goerli
-
-## Import multisig config into project
-
-```bash
-orgid --operation keys:import --keyType multisig
-```
-
-> Adding this types of keys does not require encryption password because an only wallet address will be saved to the project file.
-
-## Generate keys in PEM format
+### Generate keys in PEM format
 
 ```bash
 openssl ecparam -name secp256k1 -genkey -out ./key.pem
@@ -26,7 +14,13 @@ openssl pkcs8 -in ./key.pem -topk8 -nocrypt -out ./pkcs8.pem
 openssl ec -in ./pkcs8.pem -pubout > ./key.pub
 ```
 
-## Import keys into project
+### Import EOA keys into project
+
+```bash
+orgid --operation keys:import --keyType ethereum
+```
+
+### Import PEM keys into project
 
 ```bash
 orgid --operation keys:import --keyType pem --pubPem ./key.pub --privPem ./pkcs8.pem
@@ -45,6 +39,7 @@ orgid --operation bootstrap --output ./rawMultisigOrgId.json
 ## Add your PEM key as delegate
 
 ```bash
+orgid --operation keys:add --keyType ethereum --delegated true
 orgid --operation keys:add --keyType pem --delegated true
 ```
 
@@ -59,7 +54,3 @@ orgid --operation orgIdVc --output ./temp/multisigOrgIdVc.json --deploy ipfs
 ```bash
 orgid --operation create
 ```
-
-> You will be prompted for private key of one of the multisig wallet owners account. This key will not be saved in the project and used for the transaction signing only.
-
-> In the Gnosis Safe transactions queue will be added two transactions that have to be executed.
