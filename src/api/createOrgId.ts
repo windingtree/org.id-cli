@@ -12,7 +12,6 @@ import {
 import { printError, printInfo, printMessage, printObject } from '../utils/console';
 import { ProjectKeysReference, ProjectOrgIdsReference } from 'src/schema/types/project';
 import { proposeTx } from './multisig';
-import { parseDid } from '@windingtree/org.id-utils/dist/parsers';
 import { ORGJSONVCNFT } from '@windingtree/org.json-schema/types/orgVc';
 
 export interface OrgIdCreationResult extends Omit<OrgIdData, 'tokenId'> {
@@ -36,12 +35,15 @@ export const createWithEthereum = async (
   } = await prepareOrgIdApi(basePath, orgId, keyPair);
 
   printMessage(
-    '\nSending transaction "createOrgId(bytes32,string)"...'
+    '\nSending transaction "createOrgId(bytes32,string,string[])"...'
   );
 
-  const orgIdData = await orgIdContract.createOrgId(
+  const orgIdData = await orgIdContract.createOrgIdWithDelegates(
     orgId.salt,
     orgId.orgIdVc,
+    orgVcObj?.credentialSubject?.capabilityDelegation?.map(
+      c => typeof c === 'string' ? c : c.id
+    ) ?? [],
     signer,
     gasPrice ? { gasPrice } : undefined,
     async txHash => {
@@ -72,42 +74,6 @@ export const createWithEthereum = async (
     ...orgIdData,
     tokenId: orgIdData.tokenId.toString()
   });
-
-  const isDelegated = typeof orgVcObj?.credentialSubject?.capabilityDelegation?.[0] === 'string';
-  const { orgId: id } = parseDid(orgId.did);
-
-  if (isDelegated) {
-
-    if (!orgId.orgIdVc) {
-      throw new Error('ORGiD VC URI not found');
-    }
-
-    if (!keyPair.multisig) {
-      throw new Error('Invalid multisig keys config');
-    }
-
-    if (!orgVcObj.credentialSubject.capabilityDelegation) {
-      throw new Error(`capabilityDelegation definition not found`);
-    }
-
-    printInfo('Sending "addDelegates" tx...');
-
-    await orgIdContract.addDelegates(
-      id,
-      orgVcObj.credentialSubject.capabilityDelegation.map(
-        c => typeof c === 'string' ? c : c.id
-      ),
-      signer,
-      undefined,
-      txHash => {
-        printInfo(`\nTransaction (addDelegates) hash: ${txHash}`);
-      }
-    );
-
-    printInfo(
-      `Delegates list for the ORGiD with DID: "${orgId.did}" has been successfully updated`
-    );
-  }
 };
 
 // Propose ORGiD creation Tx to the multisig
@@ -125,58 +91,22 @@ export const createWithMultisig = async (
     throw new Error('Invalid multisig keys config');
   }
 
-  printInfo('Proposing "createOrgId" tx to multisig...');
+  printInfo('Proposing "createOrgId(bytes32,string,string[])" tx to multisig...');
 
   // Create OrgId Tx
   const orgIdInstance = await createOrgIdInstance(basePath, orgId);
-  const registerTxRaw = await orgIdInstance.contract.populateTransaction['createOrgId'](
+  const registerTxRaw = await orgIdInstance.contract.populateTransaction['createOrgId(bytes32,string,string[])'](
     orgId.salt,
-    orgId.orgIdVc
+    orgId.orgIdVc,
+    orgVcObj?.credentialSubject?.capabilityDelegation?.map(
+      c => typeof c === 'string' ? c : c.id
+    ) ?? []
   );
 
-  const nonce = await proposeTx(
+  await proposeTx(
     keyPair.multisig,
     registerTxRaw
   );
-
-  const isDelegated = typeof orgVcObj?.credentialSubject?.capabilityDelegation?.[0] === 'string';
-
-  if (isDelegated) {
-
-    if (!orgId.orgIdVc) {
-      throw new Error('ORGiD VC URI not found');
-    }
-
-    if (!keyPair.multisig) {
-      throw new Error('Invalid multisig keys config');
-    }
-
-    if (!orgVcObj.credentialSubject.capabilityDelegation) {
-      throw new Error(`capabilityDelegation definition not found`);
-    }
-
-    printInfo('Proposing "addDelegates" tx to multisig...');
-
-    // Create OrgId Tx
-    const orgIdInstance = await createOrgIdInstance(basePath, orgId);
-
-    const { orgId: id } = parseDid(orgId.did);
-
-    const registerTxRaw = await orgIdInstance.contract
-      .populateTransaction['addDelegates(bytes32,string[])'](
-        id,
-        orgVcObj.credentialSubject.capabilityDelegation.map(
-          c => typeof c === 'string' ? c : c.id
-        )
-      );
-
-    await proposeTx(
-      keyPair.multisig,
-      registerTxRaw,
-      '179545',
-      nonce
-    );
-  }
 };
 
 // Create new ORGiD
