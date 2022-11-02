@@ -11,7 +11,7 @@ import { addToOrgJson, keysImport } from './api/keysImport';
 import { createOrgId } from './api/createOrgId';
 import { changeOrgJson } from './api/changeOrgJson';
 import { resolveOrgId } from './api/resolveOrgId';
-import { transferOwnership } from './api/transferOwnership';
+// import { transferOwnership } from './api/transferOwnership';
 import { createJwt } from './api/jwt';
 
 // Main CLI handler

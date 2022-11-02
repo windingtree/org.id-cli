@@ -21,6 +21,7 @@ import { read, write } from './fs';
 import { createVerificationMethodWithBlockchainAccountId, createVerificationMethodWithKey } from '@windingtree/org.json-utils';
 import { parseDid } from '@windingtree/org.id-utils/dist/parsers';
 import { ORGJSON, VerificationMethodReference } from '@windingtree/org.json-schema/types/org.json';
+import { manageApisKeysStorage } from './projectConfig';
 
 export interface ProjectKeysReferenceWithJwk extends ProjectKeysReference {
   publicJwk: JWK,
@@ -336,7 +337,9 @@ export const keysImport = async (
       break;
     case 'multisig':
       await importMultisig(basePath);
-      return;
+      break;
+    case 'api':
+      await manageApisKeysStorage(basePath)
       break;
     default:
       throw new Error(`Unknown key pair type: "${args['--keyType']}"`)
