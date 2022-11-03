@@ -1,5 +1,9 @@
 # Creation of ORGiD compatible with multisig ownership
 
+## Prerequisites
+
+[The same as for creation of an ORGiD with regular ownership](create.md#prerequisites)
+
 ## Create Gnosis Safe multisig
 
 https://gnosis-safe.io/app
