@@ -166,6 +166,6 @@ Working the same way as for an ORGiD creation but send a transaction for the ORG
 
 ## Extended Docs
 
-- [Creation of ORGiD with delegated key](create.md)
+- [Creation of ORGiD with/without delegated key](create.md)
 - [Creation of ORGiD compatible with multisig ownership](create-multisig.md)
 - [JWT creation guide](jwt.md)
