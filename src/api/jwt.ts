@@ -1,12 +1,57 @@
 import type { ParsedArgv } from '../utils/env';
 import { ethers, utils } from 'ethers';
 import { parsers } from '@windingtree/org.id-utils';
-import { createAuthJWTWithEthers } from '@windingtree/org.id-auth/dist/tokens';
+import { createAuthJWTWithEthers, createAuthJWT } from '@windingtree/org.id-auth/dist/tokens';
 import { initOrgIdResolver } from './resolveOrgId';
 import { printInfo, printWarn } from '../utils/console';
 import { getKeyPairsFromProject } from './project';
 import prompts from 'prompts';
 import { decrypt } from './common';
+import { parseDid } from '@windingtree/org.id-utils/dist/parsers';
+import { JWK } from '@windingtree/org.id-auth/dist/keys';
+
+const createJwtWithEthereum = async (
+  issuer: string,
+  audience: string,
+  scope: string[] | undefined,
+  expiration: number | undefined,
+  accountAddress: string,
+  signerKey: string
+): Promise<string> => {
+  const signer = new ethers.Wallet(signerKey);
+
+  const signerAddress = await signer.getAddress();
+
+  if (utils.getAddress(accountAddress) !== signerAddress) {
+    throw new Error(
+      `blockchainAccountId address is different from the signer address: ${signerAddress}`
+    );
+  }
+
+  return await createAuthJWTWithEthers(
+    signer,
+    issuer,
+    audience,
+    scope,
+    expiration
+  );
+};
+
+const createJwtWithPem = async (
+  issuer: string,
+  audience: string,
+  scope: string[] | undefined,
+  expiration: number | undefined,
+  signerKey: JWK
+): Promise<string> => {
+  return await createAuthJWT(
+    signerKey,
+    issuer,
+    audience,
+    scope,
+    expiration
+  );
+};
 
 export const createJwt = async (
   basePath: string,
@@ -49,6 +94,8 @@ export const createJwt = async (
 
   const resolver = await initOrgIdResolver(basePath, args['--issuer']);
 
+  printInfo(`Resolving the ${args['--issuer']} please wait...`);
+
   const { didDocument, didResolutionMetadata } = await resolver.resolve(
     args['--issuer']
   );
@@ -59,6 +106,8 @@ export const createJwt = async (
     );
     printWarn(didResolutionMetadata.error || 'Unknown error');
     return;
+  } else {
+    printInfo('Success. The issuer DID is resolved and valid');
   }
 
   const verificationMethod = didDocument?.verificationMethod?.find(
@@ -69,82 +118,57 @@ export const createJwt = async (
     throw Error(`Verification method ${args['--issuer']} not found`);
   }
 
-  if (!verificationMethod.blockchainAccountId) {
-    throw Error('blockchainAccountId not found');
-  }
-
-  const { accountAddress } = parsers.parseBlockchainAccountId(
-    verificationMethod.blockchainAccountId
-  );
-
   const keyPairRecords = await getKeyPairsFromProject(basePath);
 
+  const { fragment } = parseDid(args['--issuer']);
+
+  if (!fragment) {
+    throw new Error(`Unable to extract verification method key Id from ${args['--issuer']}`);
+  }
+
   const keyPair = keyPairRecords.find(
-    k => utils.getAddress(k.publicKey as string) === utils.getAddress(accountAddress)
+    k => k.tag === fragment
   );
 
-  let signerKey: string;
-
-  if (keyPair) {
-    const { password } = await prompts({
-      type: 'password',
-      name: 'password',
-      message: `Enter the password for the key pair "${keyPair.tag}"`
-    });
-    signerKey = decrypt(keyPair.privateKey, password);
-  } else {
-    printWarn(`A key associated with blockchainAccountId ${accountAddress} not found`);
-
-    const { useCustomKey } = await prompts({
-      type: 'select',
-      name: 'useCustomKey',
-      message: 'Do you want to enter a custom key?',
-      choices: [
-        {
-          title: 'Yes',
-          value: true
-        },
-        {
-          title: 'No',
-          value: false
-        }
-      ],
-      initial: 0
-    });
-
-    if (!useCustomKey) {
-      printWarn('Unable to create JWT without a key. Process terminated.');
-      return;
-    }
-
-    const { privateKey } = await prompts([
-      {
-        type: 'password',
-        name: 'privateKey',
-        message: `Please enter a private key for the account ${accountAddress}`,
-      }
-    ]);
-
-    signerKey = privateKey;
+  if (!keyPair) {
+    throw new Error(`Key pair ${fragment} not found in the project`);
   }
 
-  const signer = new ethers.Wallet(signerKey);
+  const { password } = await prompts({
+    type: 'password',
+    name: 'password',
+    message: `Enter the password for the key pair "${keyPair.tag}"`
+  });
 
-  const signerAddress = await signer.getAddress();
+  let signerKey = decrypt(keyPair.privateKey, password);
+  let token: string;
 
-  if (utils.getAddress(accountAddress) !== signerAddress) {
-    throw new Error(
-      `blockchainAccountId address is different from the signer address: ${signerAddress}`
-    );
+  switch (keyPair.type) {
+    case 'ethereum':
+      token = await createJwtWithEthereum(
+        args['--issuer'],
+        args['--audience'],
+        scope,
+        expiration,
+        keyPair.publicKey,
+        signerKey
+      );
+      break;
+    case 'pem':
+      signerKey = JSON.parse(signerKey);
+      token = await createJwtWithPem(
+        args['--issuer'],
+        args['--audience'],
+        scope,
+        expiration,
+        signerKey as unknown as JWK
+      );
+      break;
+    default:
+      throw new Error(
+        `Key pair ${keyPair.tag} of type ${keyPair.type} cannot be used for the JWT signing`
+      );
   }
 
-  const token = await createAuthJWTWithEthers(
-    signer,
-    args['--issuer'],
-    args['--audience'],
-    scope,
-    expiration
-  );
-
-  printInfo(`JWT: ${token}`);
+  printInfo(`\n\nJWT: ${token}`);
 };
