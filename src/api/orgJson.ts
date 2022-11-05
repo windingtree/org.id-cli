@@ -1,30 +1,34 @@
-import type { ORGJSON, VerificationMethodReference } from '@windingtree/org.json-schema/types/org.json';
+import { vc } from '@windingtree/org.id-auth';
+import { JWK } from '@windingtree/org.id-auth/dist/keys';
+import { object as objectUtil } from '@windingtree/org.id-utils';
+import { parseDid } from '@windingtree/org.id-utils/dist/parsers';
 import type { NFTMetadata } from '@windingtree/org.json-schema/types/nft';
+import type {
+  ORGJSON,
+  VerificationMethodReference,
+} from '@windingtree/org.json-schema/types/org.json';
 import type { ORGJSONVCNFT } from '@windingtree/org.json-schema/types/orgVc';
-import type { ParsedArgv } from '../utils/env';
+import { ethers, Signer, Wallet } from 'ethers';
+import { DateTime } from 'luxon';
+import prompts from 'prompts';
 import type {
   ProjectDeploymentReference,
-  ProjectVcReference
+  ProjectVcReference,
 } from '../schema/types/project';
-import prompts from 'prompts';
-import { ethers } from 'ethers';
-import { DateTime } from  'luxon';
-import { vc } from '@windingtree/org.id-auth';
-import { object as objectUtil } from '@windingtree/org.id-utils';
-import { read, write } from './fs';
-import { deployFileIpfs } from './deployment';
-import { addVcToProject, getKeyPairsFromProjectByTag } from './project';
-import { decrypt, promptKeyPair, promptOrgId } from './common';
 import { printInfo, printMessage } from '../utils/console';
-import { parseDid } from '@windingtree/org.id-utils/dist/parsers';
-import { JWK } from '@windingtree/org.id-auth/dist/keys';
+import type { ParsedArgv } from '../utils/env';
+import { AwsKmsSigner } from './awsKms';
+import { decrypt, promptOrgId } from './common';
+import { deployFileIpfs } from './deployment';
+import { read, write } from './fs';
+import { AwsKmsKeyConfig } from './keysImport';
+import { addVcToProject, getKeyPairsFromProjectByTag } from './project';
 
 // Extract verification method from the orgJson
 export const fetchVerificationMethod = (
   orgJson: ORGJSON,
   verificationMethodId: string | undefined
 ): VerificationMethodReference => {
-
   if (!verificationMethodId) {
     throw new Error(
       'Verification method Id must be provided using "--method" option'
@@ -41,7 +45,7 @@ export const fetchVerificationMethod = (
   }
 
   const orgJsonVerificationMethod = orgJsonVerificationMethods.filter(
-    m => m.id === verificationMethodId
+    (m) => m.id === verificationMethodId
   )[0];
 
   if (!orgJsonVerificationMethod) {
@@ -81,30 +85,20 @@ export const buildNftMetadata = (
   let nftImage: string;
 
   if (!isPerson) {
-    nftName = objectUtil.getDeepValue(
-      orgJson,
-      nftNamePath
-    ) as string;
+    nftName = objectUtil.getDeepValue(orgJson, nftNamePath) as string;
 
     if (!nftName) {
       throw new Error(`"${nftNamePath}" must be defined`);
     }
 
-    nftAlterName = objectUtil.getDeepValue(
-      orgJson,
-      nftAlterNamePath
-    ) as string;
+    nftAlterName = objectUtil.getDeepValue(orgJson, nftAlterNamePath) as string;
 
-    nftImage = objectUtil.getDeepValue(
-      orgJson,
-      nftImagePath
-    ) as string;
+    nftImage = objectUtil.getDeepValue(orgJson, nftImagePath) as string;
 
     if (!nftImage) {
       throw new Error(`"${nftImagePath}" must be defined`);
     }
   } else {
-
     if (!args['--nftName']) {
       throw new Error(
         'In case of "person" profile NFT name must be provided using "--nftName" option'
@@ -133,7 +127,7 @@ export const buildNftMetadata = (
   return {
     name: nftAlterName || nftName,
     description: nftName,
-    image: nftImage
+    image: nftImage,
   };
 };
 
@@ -147,13 +141,14 @@ export const signOrgJsonWithBlockchainAccount = async (
   const issuerBlockchainAccountId = verificationMethod.blockchainAccountId;
 
   if (!issuerBlockchainAccountId) {
-    throw new Error('blockchainAccountId not defined in the verificationMethod');
+    throw new Error(
+      'blockchainAccountId not defined in the verificationMethod'
+    );
   }
 
-  const {
-    accountAddress,
-    blockchainType
-  } = vc.parseBlockchainAccountId(issuerBlockchainAccountId);
+  const { accountAddress, blockchainType } = vc.parseBlockchainAccountId(
+    issuerBlockchainAccountId
+  );
 
   if (blockchainType !== 'eip155') {
     throw new Error(
@@ -161,26 +156,48 @@ export const signOrgJsonWithBlockchainAccount = async (
     );
   }
 
-  let privateKeyRaw: string;
+  const { fragment } = parseDid(verificationMethod.id);
 
-  const keyPairRecord = await promptKeyPair(
-    basePath,
-    'ethereum'
-  );
-
-  if (keyPairRecord) {
-    privateKeyRaw = keyPairRecord.privateKey;
-  } else {
-    privateKeyRaw = process.env.ACCOUNT_KEY as string;
-  }
-
-  if (!privateKeyRaw) {
+  if (!fragment) {
     throw new Error(
-      'Verifiable credential signer private key must be provided using "ACCOUNT_KEY" environment variable'
+      `Key tag not found in the verification method Id: ${verificationMethod.id}`
     );
   }
 
-  const signer = new ethers.Wallet(privateKeyRaw);
+  const keyPairRecord = await getKeyPairsFromProjectByTag(basePath, fragment);
+
+  if (!keyPairRecord) {
+    throw new Error(
+      `Key with tag ${fragment} not found in the project. Register it first using "--operation keys:import" command`
+    );
+  }
+
+  const { password } = await prompts({
+    type: 'password',
+    name: 'password',
+    message: `Enter the password for the key pair "${keyPairRecord.tag}"`,
+  });
+
+  keyPairRecord.privateKey = decrypt(keyPairRecord.privateKey, password);
+
+  let signer: Signer;
+
+  if (keyPairRecord.type === 'ethereum') {
+    signer = new ethers.Wallet(keyPairRecord.privateKey);
+  } else if (keyPairRecord.type === 'kmsEthereum') {
+    const config = JSON.parse(keyPairRecord.privateKey) as AwsKmsKeyConfig;
+    signer = new AwsKmsSigner(config.keyId, {
+      region: config.region,
+      credentials: {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+      },
+    });
+  } else {
+    throw new Error(
+      `Key of type ${keyPairRecord.type} cannot be used for an ORGiD VC signing`
+    );
+  }
 
   const signerAddress = await signer.getAddress();
 
@@ -192,15 +209,13 @@ export const signOrgJsonWithBlockchainAccount = async (
 
   orgJson.updated = DateTime.now().toISO();
 
-  return vc.createVC(
-    verificationMethod.id,
-    [ 'OrgJson' ]
-  )
+  return vc
+    .createVC(verificationMethod.id, ['OrgJson'])
     .setCredentialSubject(orgJson)
     .setNftMetaData(nftMetadata)
     .signWithBlockchainAccount(
       issuerBlockchainAccountId,
-      signer
+      signer as Wallet
     ) as Promise<ORGJSONVCNFT>;
 };
 
@@ -220,7 +235,7 @@ export const signWithEcKey = async (
   }
 
   const isDelegate = !!capabilityDelegation.find(
-    id => id === verificationMethod.id
+    (id) => id === verificationMethod.id
   );
 
   if (!isDelegate) {
@@ -241,25 +256,21 @@ export const signWithEcKey = async (
 
   if (!keyPair) {
     throw new Error(
-      `Keys pair with tag "${fragment}" not registered yet.`+
-      'Please register it fist using "--operation keys:import" command'
+      `Keys pair with tag "${fragment}" not registered yet.` +
+        'Please register it fist using "--operation keys:import" command'
     );
   }
 
-  const { password } = await prompts(
-    {
-      type: 'password',
-      name: 'password',
-      message: 'Please provide an decryption password for keys storage'
-    }
-  );
+  const { password } = await prompts({
+    type: 'password',
+    name: 'password',
+    message: 'Please provide an decryption password for keys storage',
+  });
 
   const privateKeyRaw = decrypt(keyPair.privateKey, password);
 
-  return vc.createVC(
-    verificationMethod.id,
-    [ 'OrgJson' ]
-  )
+  return vc
+    .createVC(verificationMethod.id, ['OrgJson'])
     .setCredentialSubject(orgJson)
     .setNftMetaData(nftMetadata)
     .sign(JSON.parse(privateKeyRaw) as JWK) as Promise<ORGJSONVCNFT>;
@@ -270,7 +281,6 @@ export const createSignedOrgJson = async (
   basePath: string,
   args: ParsedArgv
 ): Promise<ProjectVcReference> => {
-
   if (!args['--output']) {
     throw new Error(
       'Path to the output file must be provided using "--output" option'
@@ -278,7 +288,6 @@ export const createSignedOrgJson = async (
   }
 
   if (!args['--payload']) {
-
     const orgId = await promptOrgId(basePath);
 
     if (!orgId.orgJson) {
@@ -289,16 +298,11 @@ export const createSignedOrgJson = async (
   }
 
   // Read the payload by path
-  const subject = await read(
-    basePath,
-    args['--payload'],
-    true
-  ) as ORGJSON;
+  const subject = (await read(basePath, args['--payload'], true)) as ORGJSON;
 
   let verificationMethod: VerificationMethodReference | undefined;
 
   if (!args['--method']) {
-
     if (!subject.verificationMethod) {
       throw new Error(
         '"orgJson.verificationMethods" not found in the ORG.JSON file'
@@ -309,22 +313,16 @@ export const createSignedOrgJson = async (
       type: 'select',
       name: 'verificationMethod',
       message: 'Choose a key that should be used as verification method',
-      choices: subject.verificationMethod.map(
-        o => ({
-          title: o.id,
-          value: o
-        })
-      ),
-      initial: 0
+      choices: subject.verificationMethod.map((o) => ({
+        title: o.id,
+        value: o,
+      })),
+      initial: 0,
     });
 
     verificationMethod = verificationMethodResult.verificationMethod;
   } else {
-
-    verificationMethod = fetchVerificationMethod(
-      subject,
-      args['--method']
-    );
+    verificationMethod = fetchVerificationMethod(subject, args['--method']);
   }
 
   if (!verificationMethod) {
@@ -373,16 +371,12 @@ export const createSignedOrgJson = async (
   let deploymentRecord: ProjectDeploymentReference | undefined;
 
   if (args['--deploy']) {
-
     switch (args['--deploy']) {
       case 'ipfs':
         printMessage('\nDeploying the file to IPFS...\n');
         args['--path'] = args['--output'];
         args['--filetype'] = 'orgIdVc';
-        deploymentRecord = await deployFileIpfs(
-          basePath,
-          args
-        );
+        deploymentRecord = await deployFileIpfs(basePath, args);
         break;
       default:
         throw new Error(`Unknown deployment type: ${args['--deploy']}`);
@@ -397,13 +391,11 @@ export const createSignedOrgJson = async (
     payload: args['--payload'],
     path: args['--output'],
     date: DateTime.now().toISO(),
-    ...(
-      deploymentRecord
-        ? {
-          uri: deploymentRecord.uri
+    ...(deploymentRecord
+      ? {
+          uri: deploymentRecord.uri,
         }
-        : {}
-    )
+      : {}),
   };
 
   return addVcToProject(basePath, vcRecord);

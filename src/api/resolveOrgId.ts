@@ -1,59 +1,48 @@
-import type { ORGJSONVCNFT } from '@windingtree/org.json-schema/types/orgVc';
 import type {
-  ResolverOptions,
-  FetcherResolver,
   FetcherConfig,
-  OrgIdResolverAPI
+  FetcherResolver,
+  OrgIdResolverAPI,
+  ResolverOptions,
 } from '@windingtree/org.id-resolver';
-import type { ParsedArgv } from '../utils/env';
 import {
   buildEvmChainConfig,
   buildHttpFetcherConfig,
-  OrgIdResolver
+  OrgIdResolver,
 } from '@windingtree/org.id-resolver';
+import type { ORGJSONVCNFT } from '@windingtree/org.json-schema/types/orgVc';
+import { printInfo, printObject, printWarn } from '../utils/console';
+import type { ParsedArgv } from '../utils/env';
 import {
-  parseDid,
   getEthersProvider,
-  getSupportedNetworkConfig
+  getSupportedNetworkConfig,
+  parseDid,
 } from './common';
 import { getFromIpfs } from './ipfs';
-import { printInfo, printWarn, printObject } from '../utils/console';
 
 export const initOrgIdResolver = async (
   basePath: string,
   did: string
 ): Promise<OrgIdResolverAPI> => {
-
   const { network } = parseDid(did);
   const provider = await getEthersProvider(basePath, network);
   const { address } = getSupportedNetworkConfig(network);
 
-  const chainConfig = buildEvmChainConfig(
-    network,
-    'eip155',
-    address,
-    provider
-  );
+  const chainConfig = buildEvmChainConfig(network, 'eip155', address, provider);
 
   const ipfsFetcherInitializer = (): FetcherResolver => ({
     getOrgJson: async (uri: string): Promise<ORGJSONVCNFT> =>
-      getFromIpfs(basePath, uri) as Promise<ORGJSONVCNFT>
+      getFromIpfs(basePath, uri) as Promise<ORGJSONVCNFT>,
   });
 
   const buildIpfsFetcherConfig = (): FetcherConfig => ({
     id: 'ipfs',
     name: 'ORG.JSON IPFS fetcher',
-    init: ipfsFetcherInitializer
+    init: ipfsFetcherInitializer,
   });
 
   const resolverOptions: ResolverOptions = {
-    chains: [
-      chainConfig
-    ],
-    fetchers: [
-      buildHttpFetcherConfig(),
-      buildIpfsFetcherConfig()
-    ]
+    chains: [chainConfig],
+    fetchers: [buildHttpFetcherConfig(), buildIpfsFetcherConfig()],
   };
 
   return OrgIdResolver(resolverOptions);
@@ -63,11 +52,8 @@ export const resolveOrgId = async (
   basePath: string,
   args: ParsedArgv
 ): Promise<void> => {
-
   if (!args['--did']) {
-    throw new Error(
-      'ORGiD DID must be provided using "--did" option'
-    );
+    throw new Error('ORGiD DID must be provided using "--did" option');
   }
 
   const resolver = await initOrgIdResolver(basePath, args['--did']);

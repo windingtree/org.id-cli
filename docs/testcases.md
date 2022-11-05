@@ -308,14 +308,9 @@ Here is an example of created ORGiD VC file:
 
 ```json
 {
-  "@context": [
-    "https://www.w3.org/2018/credentials/v1"
-  ],
+  "@context": ["https://www.w3.org/2018/credentials/v1"],
   "id": "a1b0e326-81c4-46c8-9776-ae065ffc7341",
-  "type": [
-    "VerifiableCredential",
-    "OrgJson"
-  ],
+  "type": ["VerifiableCredential", "OrgJson"],
   "issuer": "did:orgid:4:0xd6a429d09a197ad...870f0ee126ae236481fc2b40895b",
   "issuanceDate": "2021-12-23T01:34:21.401+02:00",
   "name": "Test entity",
@@ -386,57 +381,57 @@ Here is an example of an ORGiD DID resolution:
 
 ```json
 {
-   "@context": "https://w3id.org/did-resolution/v1",
-   "did": "did:orgid:4:0xd6a429d09a197adafbe...1fe870f0ee126ae236481fc2b40895b",
-   "didDocument": {
-      "@context": [
-         "https://www.w3.org/ns/did/v1",
-         "https://raw.githubusercontent.com/windingtree/org.json-schema/feat/new-orgid/src/context.json"
-      ],
-      "id": "did:orgid:4:0xd6a429d09a19ada...711fe870f0ee126ae236481fc2b40895b",
-      "created": "2021-12-21T23:32:51.818+02:00",
-      "verificationMethod": [
-         {
-            "id": "did:orgid:4:0xd6a429d09a...126ae236481f2b40895b#testCliKey1",
-            "controller": "did:orgid:4:0xd6a429d09a1...0ee26ae236481fc2b40895b",
-            "type": "EcdsaSecp256k1RecoveryMethod2020",
-            "blockchainAccountId": "0xeE75487409991A8F...5B0B5E6e99d7A@eip155:4"
-         }
-      ],
-      "legalEntity": {
-         "legalName": "Test entity",
-         "registryCode": "123456789",
-         "legalType": "Lsd",
-         "registeredAddress": {
-            "country": "ua",
-            "locality": "Odesa",
-            "postalCode": "65000",
-            "streetAddress": "Deribasovskaya, str 0"
-         },
-         "media": {
-            "logo": "ipfs://QmSTgJiMGsaRbuieVttWDki3uMHwgqnGMpM9yJ3TXHBnBf"
-         }
-      },
-      "updated": "2021-12-23T01:34:21.386+02:00"
-   },
-   "didResolutionMetadata": {
-      "contentType": "application/did+ld+json",
-      "retrieved": "2021-12-31T00:05:05.104+02:00",
-      "duration": 5101,
-      "resolverVersion": "3.0.0-beta.12"
-   },
-   "didDocumentMetadata": {
-      "created": "2021-12-21T23:32:51.818+02:00",
-      "updated": "2021-12-23T01:34:21.386+02:00",
-      "data":{
-         "tokenId": "1",
-         "orgId": "0xd6a429d09a197adafbe8c0d...70f0ee126ae236481fc2b40895b",
-         "owner": "0xeE75487409991A8...AdA852B0B5E6e99d7A",
-         "orgJsonUri": "ipfs://QmVQnh7HJu4FeJZM945PifkCH8CFskYZgUDMSQqgQzDMQ4",
-         "delegates": [],
-         "created": "2021-12-22T15:50:49.000Z"
+  "@context": "https://w3id.org/did-resolution/v1",
+  "did": "did:orgid:4:0xd6a429d09a197adafbe...1fe870f0ee126ae236481fc2b40895b",
+  "didDocument": {
+    "@context": [
+      "https://www.w3.org/ns/did/v1",
+      "https://raw.githubusercontent.com/windingtree/org.json-schema/feat/new-orgid/src/context.json"
+    ],
+    "id": "did:orgid:4:0xd6a429d09a19ada...711fe870f0ee126ae236481fc2b40895b",
+    "created": "2021-12-21T23:32:51.818+02:00",
+    "verificationMethod": [
+      {
+        "id": "did:orgid:4:0xd6a429d09a...126ae236481f2b40895b#testCliKey1",
+        "controller": "did:orgid:4:0xd6a429d09a1...0ee26ae236481fc2b40895b",
+        "type": "EcdsaSecp256k1RecoveryMethod2020",
+        "blockchainAccountId": "0xeE75487409991A8F...5B0B5E6e99d7A@eip155:4"
       }
-   }
+    ],
+    "legalEntity": {
+      "legalName": "Test entity",
+      "registryCode": "123456789",
+      "legalType": "Lsd",
+      "registeredAddress": {
+        "country": "ua",
+        "locality": "Odesa",
+        "postalCode": "65000",
+        "streetAddress": "Deribasovskaya, str 0"
+      },
+      "media": {
+        "logo": "ipfs://QmSTgJiMGsaRbuieVttWDki3uMHwgqnGMpM9yJ3TXHBnBf"
+      }
+    },
+    "updated": "2021-12-23T01:34:21.386+02:00"
+  },
+  "didResolutionMetadata": {
+    "contentType": "application/did+ld+json",
+    "retrieved": "2021-12-31T00:05:05.104+02:00",
+    "duration": 5101,
+    "resolverVersion": "3.0.0-beta.12"
+  },
+  "didDocumentMetadata": {
+    "created": "2021-12-21T23:32:51.818+02:00",
+    "updated": "2021-12-23T01:34:21.386+02:00",
+    "data": {
+      "tokenId": "1",
+      "orgId": "0xd6a429d09a197adafbe8c0d...70f0ee126ae236481fc2b40895b",
+      "owner": "0xeE75487409991A8...AdA852B0B5E6e99d7A",
+      "orgJsonUri": "ipfs://QmVQnh7HJu4FeJZM945PifkCH8CFskYZgUDMSQqgQzDMQ4",
+      "delegates": [],
+      "created": "2021-12-22T15:50:49.000Z"
+    }
+  }
 }
 ```
 

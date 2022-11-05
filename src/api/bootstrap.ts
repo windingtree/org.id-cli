@@ -1,27 +1,26 @@
-import type { ParsedArgv } from '../utils/env';
-import type {
-  ProjectOrgIdsReference
-} from '../schema/types/project';
+/* eslint-disable no-case-declarations */
 import type { AnySchema } from '@windingtree/org.id-utils/dist/object';
+import type { ProjectOrgIdsReference } from '../schema/types/project';
+import type { ParsedArgv } from '../utils/env';
 // @todo Move `AnySchema` type declaration to the top level
-import type { ORGJSON } from '@windingtree/org.json-schema/types/org.json';
+import { common, object } from '@windingtree/org.id-utils';
 import { org as orgJsonSchema } from '@windingtree/org.json-schema';
+import type { ORGJSON } from '@windingtree/org.json-schema/types/org.json';
 import { createVerificationMethodWithBlockchainAccountId } from '@windingtree/org.json-utils';
-import { object, common } from '@windingtree/org.id-utils';
-import { printInfo, printWarn, printObject } from '../utils/console';
-import { DateTime } from  'luxon';
-import prompts from 'prompts';
 import { utils as ethersUtils } from 'ethers';
-import {
-  addOrgIdToProject
-} from './project';
+import { DateTime } from 'luxon';
+import prompts from 'prompts';
+import { printInfo, printObject, printWarn } from '../utils/console';
+import { AwsKmsSigner } from './awsKms';
 import { blockchainNetworks, promptKeyPair } from './common';
 import { write } from './fs';
+import { AwsKmsKeyConfig } from './keysImport';
 import { parseSafeAddress } from './multisig';
+import { addOrgIdToProject } from './project';
 
 const entityTypeSchemaPath = {
   legalEntity: 'definitions.LegalEntityReference',
-  organizationalUnit: 'definitions.OrganizationalUnitReference'
+  organizationalUnit: 'definitions.OrganizationalUnitReference',
 };
 
 // Convert JSON schema to a prompt config
@@ -34,17 +33,12 @@ export const promptSchema = async (
   let properties = schema.properties;
 
   if (requiredOnly && schema?.required.length > 0) {
-    properties = Object
-      .entries(properties)
-      .reduce(
-        (a, v) => {
-          if (schema.required.includes(v[0])) {
-            a[v[0]] = v[1];
-          }
-          return a;
-        },
-        {}
-      );
+    properties = Object.entries(properties).reduce((a, v) => {
+      if (schema.required.includes(v[0])) {
+        a[v[0]] = v[1];
+      }
+      return a;
+    }, {});
   }
 
   for (const prop of Object.entries<any>(properties)) {
@@ -67,47 +61,37 @@ export const promptSchema = async (
         out[name] = promptsResult;
         break;
       case 'string':
-
         if (propSchema.enum) {
-          promptsResult = await prompts(
-            {
-              type: 'select',
-              name,
-              message: `"${name}": ${propSchema.description}. Please choose an option`,
-              choices: propSchema.enum.map(e => ({
-                title: e,
-                value: e
-              }))
-            }
-          );
+          promptsResult = await prompts({
+            type: 'select',
+            name,
+            message: `"${name}": ${propSchema.description}. Please choose an option`,
+            choices: propSchema.enum.map((e) => ({
+              title: e,
+              value: e,
+            })),
+          });
         } else {
-          promptsResult = await prompts(
-            {
-              type: 'text',
-              name,
-              message: `"${name}": ${propSchema.description}`,
-            }
-          );
+          promptsResult = await prompts({
+            type: 'text',
+            name,
+            message: `"${name}": ${propSchema.description}`,
+          });
         }
 
         out[name] = promptsResult[name];
         break;
       case 'array':
-
         if (propSchema.items?.allOf[0]?.type === 'string') {
-
-          promptsResult = await prompts(
-            {
-              type: 'list',
-              name,
-              message: `"${name}": ${propSchema.description}`,
-              initial: '',
-              separator: ','
-            }
-          );
+          promptsResult = await prompts({
+            type: 'list',
+            name,
+            message: `"${name}": ${propSchema.description}`,
+            initial: '',
+            separator: ',',
+          });
           out[name] = promptsResult[name];
         } else {
-
           printWarn(
             `The property "${name}" of the profile has a type that not supported by CLI yet. Please edit this property in the ORG.JSON file manually`
           );
@@ -122,14 +106,11 @@ export const promptSchema = async (
   return out;
 };
 
-
-
 // Operation that helps to bootstrap a new organization profile
 export const bootstrapOrgJson = async (
   basePath: string,
   args: ParsedArgv
 ): Promise<ORGJSON> => {
-
   if (!args['--output']) {
     throw new Error(
       'Path to the output file must be provided using "--output" option'
@@ -137,26 +118,23 @@ export const bootstrapOrgJson = async (
   }
 
   // Prompt for values required for an ORGiD generation
-  const { networkId } = await prompts(
-    [
-      {
-        type: 'select',
-        name: 'networkId',
-        message: 'Please choose a blockchain network where the ORGiD should be issued',
-        choices: blockchainNetworks.map(b => ({
-          title: b.name,
-          value: b.id
-        })),
-        initial: 0
-      }
-    ]
-  );
+  const { networkId } = await prompts([
+    {
+      type: 'select',
+      name: 'networkId',
+      message:
+        'Please choose a blockchain network where the ORGiD should be issued',
+      choices: blockchainNetworks.map((b) => ({
+        title: b.name,
+        value: b.id,
+      })),
+      initial: 0,
+    },
+  ]);
 
   let accountAddress: string;
 
-  const keyPairRecord = await promptKeyPair(
-    basePath
-  );
+  const keyPairRecord = await promptKeyPair(basePath);
 
   if (!keyPairRecord) {
     throw new Error('Key pair not selected');
@@ -166,14 +144,29 @@ export const bootstrapOrgJson = async (
     case 'ethereum':
       accountAddress = ethersUtils.getAddress(keyPairRecord.publicKey);
       break;
+    case 'kmsEthereum':
+      const config = keyPairRecord.privateKey as unknown as AwsKmsKeyConfig;
+      const signer = new AwsKmsSigner(config.keyId, {
+        region: config.region,
+        credentials: {
+          accessKeyId: config.accessKeyId,
+          secretAccessKey: config.secretAccessKey,
+        },
+      });
+      accountAddress = await signer.getAddress();
+      break;
     case 'multisig':
       if (!keyPairRecord.multisig) {
         throw new Error('Invalid multisig key');
       }
-      accountAddress = ethersUtils.getAddress(parseSafeAddress(keyPairRecord.multisig).address);
+      accountAddress = ethersUtils.getAddress(
+        parseSafeAddress(keyPairRecord.multisig).address
+      );
       break;
     default:
-      throw new Error(`Key pair of type "${keyPairRecord.type}" cannot be used for issuing an ORGiD`)
+      throw new Error(
+        `Key pair of type "${keyPairRecord.type}" cannot be used for issuing an ORGiD`
+      );
   }
 
   const salt = common.generateSalt();
@@ -189,46 +182,44 @@ ORGiD DID: ${did}\n`
   const orgJsonTemplate: ORGJSON = {
     '@context': [
       'https://www.w3.org/ns/did/v1',
-      'https://raw.githubusercontent.com/windingtree/org.json-schema/feat/new-orgid/src/context.json'
+      'https://raw.githubusercontent.com/windingtree/org.json-schema/feat/new-orgid/src/context.json',
     ],
     id: did,
     created: DateTime.now().toISO(),
     verificationMethod: [
       ...(keyPairRecord.type === 'ethereum'
         ? [
-          createVerificationMethodWithBlockchainAccountId(
-            `${did}#${keyPairRecord.tag}`,
-            did,
-            'eip155',
-            networkId,
-            accountAddress,
-            'Default verification method'
-          )
-        ]
-        : [])
-    ]
+            createVerificationMethodWithBlockchainAccountId(
+              `${did}#${keyPairRecord.tag}`,
+              did,
+              'eip155',
+              networkId,
+              accountAddress,
+              'Default verification method'
+            ),
+          ]
+        : []),
+    ],
   };
 
   // Selecting of an entity type
-  const { entityType } = await prompts(
-    {
-      type: 'select',
-      name: 'entityType',
-      message: 'Please choose a type of entity and press `Enter`',
-      choices: [
-        {
-          title: 'Legal Entity',
-          value: 'legalEntity'
-        },
-        {
-          title: 'Organizational Unit',
-          value: 'organizationalUnit'
-        },
-        // @todo Add `Person` option
-      ],
-      initial: 0
-    }
-  );
+  const { entityType } = await prompts({
+    type: 'select',
+    name: 'entityType',
+    message: 'Please choose a type of entity and press `Enter`',
+    choices: [
+      {
+        title: 'Legal Entity',
+        value: 'legalEntity',
+      },
+      {
+        title: 'Organizational Unit',
+        value: 'organizationalUnit',
+      },
+      // @todo Add `Person` option
+    ],
+    initial: 0,
+  });
 
   const selectedSchema = object.getDeepValue(
     orgJsonSchema,
@@ -240,27 +231,27 @@ ORGiD DID: ${did}\n`
   }
 
   // Selecting of an entity type
-  const { requiredOnly } = await prompts(
-    {
-      type: 'select',
-      name: 'requiredOnly',
-      message: 'Do you want to fill all the properties or required only?',
-      choices: [
-        {
-          title: 'Required only',
-          value: true
-        },
-        {
-          title: 'All the properties',
-          value: false
-        }
-      ],
-      initial: 0
-    }
-  );
+  const { requiredOnly } = await prompts({
+    type: 'select',
+    name: 'requiredOnly',
+    message: 'Do you want to fill all the properties or required only?',
+    choices: [
+      {
+        title: 'Required only',
+        value: true,
+      },
+      {
+        title: 'All the properties',
+        value: false,
+      },
+    ],
+    initial: 0,
+  });
 
   printInfo(
-    `\nCreating a profile for "${entityType}" (${requiredOnly ? 'mandatory properties only' : 'all properties'})\n`
+    `\nCreating a profile for "${entityType}" (${
+      requiredOnly ? 'mandatory properties only' : 'all properties'
+    })\n`
   );
 
   const entityProfile = await promptSchema(
@@ -276,9 +267,7 @@ ORGiD DID: ${did}\n`
     JSON.stringify(orgJsonTemplate, null, 2)
   );
 
-  printInfo(
-    `The ORG.JSON for the DID ${did}:`
-  );
+  printInfo(`The ORG.JSON for the DID ${did}:`);
 
   printObject(orgJsonTemplate);
 
@@ -287,7 +276,7 @@ ORGiD DID: ${did}\n`
     salt,
     owner: accountAddress,
     orgJson: outputFile,
-    date: DateTime.now().toISO()
+    date: DateTime.now().toISO(),
   };
 
   await addOrgIdToProject(basePath, orgIdRecord);

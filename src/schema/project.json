@@ -4,7 +4,7 @@
   "description": "An ORGiD project configuration",
   "allOf": [
     {
-        "$ref": "#/definitions/OrgIdCliProjectReference"
+      "$ref": "#/definitions/OrgIdCliProjectReference"
     }
   ],
   "definitions": {
@@ -92,11 +92,7 @@
           "description": "Is URI is encrypted"
         }
       },
-      "required": [
-        "id",
-        "uri",
-        "encrypted"
-      ]
+      "required": ["id", "uri", "encrypted"]
     },
     "ApiKeyConfigReference": {
       "description": "API key config record",
@@ -115,11 +111,7 @@
           "description": "Is key is encrypted"
         }
       },
-      "required": [
-        "id",
-        "key",
-        "encrypted"
-      ]
+      "required": ["id", "key", "encrypted"]
     },
     "ProjectDeploymentReference": {
       "description": "Deployment configuration project record",
@@ -128,11 +120,7 @@
         "type": {
           "description": "A type of deployment",
           "type": "string",
-          "enum": [
-            "ipfs",
-            "ipns",
-            "rest"
-          ]
+          "enum": ["ipfs", "ipns", "rest"]
         },
         "path": {
           "description": "Path to the local file",
@@ -148,12 +136,7 @@
           "format": "date-time"
         }
       },
-      "required": [
-        "type",
-        "path",
-        "uri",
-        "date"
-      ]
+      "required": ["type", "path", "uri", "date"]
     },
     "ProjectVcReference": {
       "description": "Verifiable credential project record",
@@ -162,10 +145,7 @@
         "type": {
           "description": "A type of VC",
           "type": "string",
-          "enum": [
-            "VerifiableCredential",
-            "OrgJson"
-          ]
+          "enum": ["VerifiableCredential", "OrgJson"]
         },
         "did": {
           "description": "ORGiD DID of the ORG.JSON",
@@ -193,13 +173,7 @@
           "format": "date-time"
         }
       },
-      "required": [
-        "type",
-        "method",
-        "payload",
-        "path",
-        "date"
-      ]
+      "required": ["type", "method", "payload", "path", "date"]
     },
     "ProjectOrgIdsReference": {
       "description": "ORGiD configuration project record",
@@ -235,11 +209,7 @@
           "format": "date-time"
         }
       },
-      "required": [
-        "did",
-        "salt",
-        "owner"
-      ]
+      "required": ["did", "salt", "owner"]
     },
     "ProjectKeysReference": {
       "description": "Registered key pair project record",
@@ -247,11 +217,7 @@
         "type": {
           "type": "string",
           "description": "Type of key pair",
-          "enum": [
-            "ethereum",
-            "pem",
-            "multisig"
-          ]
+          "enum": ["ethereum", "pem", "multisig", "kmsEthereum"]
         },
         "tag": {
           "type": "string",
@@ -275,12 +241,7 @@
           "format": "date-time"
         }
       },
-      "required": [
-        "type",
-        "tag",
-        "publicKey",
-        "privateKey"
-      ]
+      "required": ["type", "tag", "publicKey", "privateKey"]
     }
   }
 }

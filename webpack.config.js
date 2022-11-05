@@ -16,11 +16,11 @@ module.exports = {
           {
             loader: 'ts-loader',
             options: {
-                configFile: 'tsconfig-build.json'
-            }
-          }
+              configFile: 'tsconfig-build.json',
+            },
+          },
         ],
-        exclude: /node_modules/
+        exclude: /node_modules/,
       },
     ],
   },
@@ -31,13 +31,13 @@ module.exports = {
     filename: 'index.js',
     path: path.resolve(__dirname, 'dist'),
     library: {
-      type: 'commonjs'
-    }
+      type: 'commonjs',
+    },
   },
   plugins: [
     new webpack.BannerPlugin({
       banner: '#!/usr/bin/env -S node --no-deprecation',
-      raw: true
+      raw: true,
     }),
     new webpack.ProvidePlugin({
       fetch: ['node-fetch', 'default'],

@@ -1,20 +1,18 @@
 import { parseArguments, parseQuotedValue, parseEnv } from '../src/utils/env';
 
 describe('Utils tests', () => {
-
   describe('ENV utils', () => {
     const env = { KEY1: 'key1', KEY2: 'key2', KEY3: 'key3' };
-    const rawEnv =
-`KEY1=key1
+    const rawEnv = `KEY1=key1
 KEY2="key2"
 KEY3='key3'
 `;
 
     describe('#parseQuotedValue', () => {
       const unQuoted = 'value';
-      const singleQuoted = '\'value\'';
-      const singleStartQuoted = '\'value';
-      const singleEndQuoted = 'value\'';
+      const singleQuoted = "'value'";
+      const singleStartQuoted = "'value";
+      const singleEndQuoted = "value'";
       const doubleQuoted = '"value"';
       const doubleStartQuoted = '"value';
       const doubleEndQuoted = 'value"';
@@ -31,7 +29,6 @@ KEY3='key3'
     });
 
     describe('#parseEnv', () => {
-
       it('should par raw ENV file source', async () => {
         const { KEY1, KEY2, KEY3 } = parseEnv(rawEnv);
         expect(KEY1).toBe(env.KEY1);
@@ -50,19 +47,19 @@ KEY3='key3'
       '/home/host/.nvm/versions/node/v12.20.2/bin/node',
       '/home/host/dev/secure-env-cli/bin/index.js',
       './test.senv',
-      'node --version'
+      'node --version',
     ];
     const argvEncrypt = [
       '/home/host/.nvm/versions/node/v12.20.2/bin/node',
       '/home/host/dev/secure-env-cli/bin/index.js',
       '--type',
-      './test.env'
+      './test.env',
     ];
     const argvDecrypt = [
       '/home/host/.nvm/versions/node/v12.20.2/bin/node',
       '/home/host/dev/secure-env-cli/bin/index.js',
       '--payload',
-      './test.senv'
+      './test.senv',
     ];
 
     const argvEncryptDecrypt = [
@@ -71,44 +68,31 @@ KEY3='key3'
       '--type',
       './test.env',
       '--payload',
-      './test.senv'
+      './test.senv',
     ];
 
     describe('#parseArguments', () => {
-
       it('should parse argvExec', async () => {
-        const result = parseArguments(
-          config,
-          argvExec
-        );
+        const result = parseArguments(config, argvExec);
         expect(result).toHaveProperty('_');
         expect(result['_'][2]).toBe(argvExec[2]);
         expect(result['_'][3]).toBe(argvExec[3]);
       });
 
       it('should parse argvEncrypt', async () => {
-        const result = parseArguments(
-          config,
-          argvEncrypt
-        );
+        const result = parseArguments(config, argvEncrypt);
         expect(result).toHaveProperty('--type');
         expect(result['--type']).toBe(argvEncrypt[3]);
       });
 
       it('should parse argvDecrypt', async () => {
-        const result = parseArguments(
-          config,
-          argvDecrypt
-        );
+        const result = parseArguments(config, argvDecrypt);
         expect(result).toHaveProperty('--payload');
         expect(result['--payload']).toBe(argvDecrypt[3]);
       });
 
       it('should parse argvEncryptDecrypt', async () => {
-        const result = parseArguments(
-          config,
-          argvEncryptDecrypt
-        );
+        const result = parseArguments(config, argvEncryptDecrypt);
         expect(result).toHaveProperty('--type');
         expect(result).toHaveProperty('--payload');
         expect(result['--type']).toBe(argvEncryptDecrypt[3]);

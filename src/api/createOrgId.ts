@@ -1,18 +1,24 @@
-import type { OrgIdData } from '@windingtree/org.id-core/';
-import {
-  promptOrgId,
-  prepareOrgIdApi,
-  downloadOrgIdVc,
-  promptKeyPair,
-  createOrgIdInstance
-} from './common';
-import {
-  updateOrgIdRecord
-} from './project';
-import { printError, printInfo, printMessage, printObject } from '../utils/console';
-import { ProjectKeysReference, ProjectOrgIdsReference } from 'src/schema/types/project';
-import { proposeTx } from './multisig';
+import { OrgIdData } from '@windingtree/org.id-core/';
 import { ORGJSONVCNFT } from '@windingtree/org.json-schema/types/orgVc';
+import {
+  ProjectKeysReference,
+  ProjectOrgIdsReference,
+} from '../schema/types/project';
+import {
+  printError,
+  printInfo,
+  printMessage,
+  printObject,
+} from '../utils/console';
+import {
+  createOrgIdInstance,
+  downloadOrgIdVc,
+  prepareOrgIdApi,
+  promptKeyPair,
+  promptOrgId,
+} from './common';
+import { proposeTx } from './multisig';
+import { updateOrgIdRecord } from './project';
 
 export interface OrgIdCreationResult extends Omit<OrgIdData, 'tokenId'> {
   tokenId: string;
@@ -22,17 +28,19 @@ export const createWithEthereum = async (
   basePath: string,
   orgId: ProjectOrgIdsReference,
   orgVcObj: ORGJSONVCNFT,
-  keyPair: ProjectKeysReference
+  keyPair: ProjectKeysReference,
+  useAwsKmsSigner = false
 ): Promise<void> => {
   if (!orgId.orgIdVc) {
     throw new Error(`ORGiD VC not created for this ORGiD (${orgId.did}) yet`);
   }
 
-  const {
-    orgIdContract,
-    signer,
-    gasPrice
-  } = await prepareOrgIdApi(basePath, orgId, keyPair);
+  const { orgIdContract, signer, gasPrice } = await prepareOrgIdApi(
+    basePath,
+    orgId,
+    keyPair,
+    useAwsKmsSigner
+  );
 
   printMessage(
     '\nSending transaction "createOrgId(bytes32,string,string[])"...'
@@ -41,21 +49,17 @@ export const createWithEthereum = async (
   const orgIdData = await orgIdContract.createOrgIdWithDelegates(
     orgId.salt,
     orgId.orgIdVc,
-    orgVcObj?.credentialSubject?.capabilityDelegation?.map(
-      c => typeof c === 'string' ? c : c.id
+    orgVcObj?.credentialSubject?.capabilityDelegation?.map((c) =>
+      typeof c === 'string' ? c : c.id
     ) ?? [],
     signer,
     gasPrice ? { gasPrice } : undefined,
-    async txHash => {
+    async (txHash) => {
       printInfo(`\nTransaction hash: ${txHash}`);
       try {
-        await updateOrgIdRecord(
-          basePath,
-          orgId.did,
-          {
-            txHash
-          }
-        );
+        await updateOrgIdRecord(basePath, orgId.did, {
+          txHash,
+        });
       } catch {
         printError('Unable to update project file');
       }
@@ -66,13 +70,11 @@ export const createWithEthereum = async (
     throw new Error('Unable to fetch ORGiD data');
   }
 
-  printInfo(
-    `ORGiD with DID: "${orgId.did}" has been successfully created`
-  );
+  printInfo(`ORGiD with DID: "${orgId.did}" has been successfully created`);
 
   printObject({
     ...orgIdData,
-    tokenId: orgIdData.tokenId.toString()
+    tokenId: orgIdData.tokenId.toString(),
   });
 };
 
@@ -91,40 +93,34 @@ export const createWithMultisig = async (
     throw new Error('Invalid multisig keys config');
   }
 
-  printInfo('Proposing "createOrgId(bytes32,string,string[])" tx to multisig...');
+  printInfo(
+    'Proposing "createOrgId(bytes32,string,string[])" tx to multisig...'
+  );
 
   // Create OrgId Tx
   const orgIdInstance = await createOrgIdInstance(basePath, orgId);
-  const registerTxRaw = await orgIdInstance.contract.populateTransaction['createOrgId(bytes32,string,string[])'](
+  const registerTxRaw = await orgIdInstance.contract.populateTransaction[
+    'createOrgId(bytes32,string,string[])'
+  ](
     orgId.salt,
     orgId.orgIdVc,
-    orgVcObj?.credentialSubject?.capabilityDelegation?.map(
-      c => typeof c === 'string' ? c : c.id
+    orgVcObj?.credentialSubject?.capabilityDelegation?.map((c) =>
+      typeof c === 'string' ? c : c.id
     ) ?? []
   );
 
-  await proposeTx(
-    keyPair.multisig,
-    registerTxRaw
-  );
+  await proposeTx(keyPair.multisig, registerTxRaw);
 };
 
 // Create new ORGiD
-export const createOrgId = async (
-  basePath: string
-): Promise<void> => {
-
+export const createOrgId = async (basePath: string): Promise<void> => {
   const orgId = await promptOrgId(basePath, false);
 
   if (!orgId) {
     throw new Error('The ORGiD not been selected');
   }
 
-  const {
-    created,
-    did,
-    orgIdVc
-  } = orgId;
+  const { created, did, orgIdVc } = orgId;
 
   if (created) {
     throw new Error(`This ORGiD ${did} already has been created`);
@@ -136,9 +132,7 @@ export const createOrgId = async (
 
   const orgIdVcObj = await downloadOrgIdVc(basePath, orgIdVc);
 
-  const keyPair = await promptKeyPair(
-    basePath
-  );
+  const keyPair = await promptKeyPair(basePath);
 
   if (!keyPair) {
     throw new Error('Key pair not selected');
@@ -147,6 +141,9 @@ export const createOrgId = async (
   switch (keyPair.type) {
     case 'ethereum':
       await createWithEthereum(basePath, orgId, orgIdVcObj, keyPair);
+      break;
+    case 'kmsEthereum':
+      await createWithEthereum(basePath, orgId, orgIdVcObj, keyPair, true);
       break;
     case 'multisig':
       await createWithMultisig(basePath, orgId, orgIdVcObj, keyPair);
@@ -157,11 +154,7 @@ export const createOrgId = async (
       );
   }
 
-  await updateOrgIdRecord(
-    basePath,
-    did,
-    {
-      created: true
-    }
-  );
+  await updateOrgIdRecord(basePath, did, {
+    created: true,
+  });
 };

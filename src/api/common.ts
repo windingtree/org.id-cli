@@ -1,23 +1,30 @@
-import { BigNumber } from 'ethers';
-import type { ORGJSON } from '@windingtree/org.json-schema/types/org.json';
-import type {
-  ProjectKeysReference,
-  ProjectOrgIdsReference
-} from '../schema/types/project';
 import { KnownProvider, OrgIdContract } from '@windingtree/org.id-core';
-import { AES, enc } from 'crypto-js';
-import { Wallet, utils as etherUtils, Signer, providers } from 'ethers';
 import { http, parsers, regexp } from '@windingtree/org.id-utils';
+import { ORGJSON } from '@windingtree/org.json-schema/types/org.json';
+import { ORGJSONVCNFT } from '@windingtree/org.json-schema/types/orgVc';
+import { AES, enc } from 'crypto-js';
+import {
+  BigNumber,
+  providers,
+  Signer,
+  utils as etherUtils,
+  Wallet,
+} from 'ethers';
 import prompts from 'prompts';
 import {
-  getKeyPairsFromProject,
-  getOrgIdsFromProject,
-  getNetworkProviderById,
-  getApiKeyById
-} from './project';
+  ProjectKeysReference,
+  ProjectOrgIdsReference,
+} from '../schema/types/project';
+import { AwsKmsSigner } from './awsKms';
 import { read } from './fs';
-import { ORGJSONVCNFT } from '@windingtree/org.json-schema/types/orgVc';
 import { getFromIpfs } from './ipfs';
+import { AwsKmsKeyConfig } from './keysImport';
+import {
+  getApiKeyById,
+  getKeyPairsFromProject,
+  getNetworkProviderById,
+  getOrgIdsFromProject,
+} from './project';
 
 export interface ParsedDid {
   did: string;
@@ -36,7 +43,7 @@ export interface DidGroupedCheckResult extends RegExpExecArray {
     id: string;
     query?: string;
     fragment?: string;
-  }
+  };
 }
 
 export interface BlockchainNetworkConfig {
@@ -57,47 +64,47 @@ export const blockchainNetworks: BlockchainNetworkConfig[] = [
   {
     name: 'Sokol xDAI Testnet',
     id: '77',
-    address: '0xDd1231c0FD9083DA42eDd2BD4f041d0a54EF7BeE'
+    address: '0xDd1231c0FD9083DA42eDd2BD4f041d0a54EF7BeE',
   },
   {
     name: 'Columbus',
     id: '502',
-    address: '0xd8b75be9a47ffab0b5c27a143b911af7a7bf4076'
+    address: '0xd8b75be9a47ffab0b5c27a143b911af7a7bf4076',
   },
   {
     name: 'Goerli',
     id: '5',
-    address: '0xe02dF24d8dFdd37B21690DB30F4813cf6c4D9D93'
+    address: '0xe02dF24d8dFdd37B21690DB30F4813cf6c4D9D93',
   },
   {
     name: 'Polygon',
     id: '137',
-    address: '0x8a093Cb94663994d19a778c7EA9161352a434c64'
+    address: '0x8a093Cb94663994d19a778c7EA9161352a434c64',
   },
   {
     name: 'Gnosis Chain',
     id: '100',
-    address: '0xb63d48e9d1e51305a17F4d95aCa3637BBC181b44'
-  }
+    address: '0xb63d48e9d1e51305a17F4d95aCa3637BBC181b44',
+  },
 ];
 
 // Extract ORGiD smart contract address from networks list
-export const getSupportedNetworkConfig = (id: string): BlockchainNetworkConfig => {
-  const networkConfig = blockchainNetworks.filter(b => b.id === id)[0];
+export const getSupportedNetworkConfig = (
+  id: string
+): BlockchainNetworkConfig => {
+  const networkConfig = blockchainNetworks.filter((b) => b.id === id)[0];
 
   if (!networkConfig) {
     throw new Error(`Network #${id} not supported by ORGiD protocol yet`);
   }
 
   return networkConfig;
-}
+};
 
 // Encrypts the data
 export const encrypt = (data: string, password: string | unknown): string => {
   try {
-    return AES
-      .encrypt(data, password as string)
-      .toString();
+    return AES.encrypt(data, password as string).toString();
   } catch (error) {
     throw Error('Unable to encrypt');
   }
@@ -107,9 +114,7 @@ export const encrypt = (data: string, password: string | unknown): string => {
 export const decrypt = (encData: string, password: string): string => {
   let decrypted: string;
   try {
-    decrypted = AES
-      .decrypt(encData, password)
-      .toString(enc.Utf8);
+    decrypted = AES.decrypt(encData, password).toString(enc.Utf8);
     if (decrypted === '') {
       throw Error('Decrypted data is empty');
     }
@@ -130,13 +135,11 @@ export const promptKeyPair = async (
     type: 'select',
     name: 'keyPair',
     message: 'Choose a key',
-    choices: keyPairRecords.map(
-      k => ({
-        title: k.tag,
-        value: k
-      })
-    ),
-    initial: 0
+    choices: keyPairRecords.map((k) => ({
+      title: k.tag,
+      value: k,
+    })),
+    initial: 0,
   });
 
   if (!keyPair) {
@@ -149,7 +152,7 @@ export const promptKeyPair = async (
     const { password } = await prompts({
       type: 'password',
       name: 'password',
-      message: `Enter the password for the key pair "${keys.tag}"`
+      message: `Enter the password for the key pair "${keys.tag}"`,
     });
 
     if (keys.type === 'pem') {
@@ -159,11 +162,10 @@ export const promptKeyPair = async (
       } catch (err) {
         throw new Error(`Unable to decode key pair with tag: ${keys.tag}`);
       }
+    } else if (keys.type === 'kmsEthereum') {
+      keys.privateKey = JSON.parse(decrypt(keys.privateKey, password));
     } else {
-      keys.privateKey = decrypt(
-        keys.privateKey,
-        password
-      );
+      keys.privateKey = decrypt(keys.privateKey, password);
     }
   }
 
@@ -175,37 +177,29 @@ export const promptOrgId = async (
   basePath: string,
   created?: boolean
 ): Promise<ProjectOrgIdsReference> => {
-
   const orgIdsRecords = await getOrgIdsFromProject(basePath);
 
   if (orgIdsRecords.length === 0) {
-
-    throw new Error(
-      `Registered ORGIDs are found`
-    );
+    throw new Error(`Registered ORGIDs are found`);
   }
 
-  const { orgId } = await prompts({
+  const { orgId } = (await prompts({
     type: 'select',
     name: 'orgId',
     message: 'Choose a registered ORGiD DID',
     choices: orgIdsRecords
-      .filter(
-        o => {
-          if (created !== undefined) {
-            return !!o.created === created;
-          }
-          return true;
+      .filter((o) => {
+        if (created !== undefined) {
+          return !!o.created === created;
         }
-      )
-      .map(
-        (o: ProjectOrgIdsReference) => ({
-          title: o.did,
-          value: o
-        })
-      ),
-    initial: 0
-  }) as { orgId: ProjectOrgIdsReference };
+        return true;
+      })
+      .map((o: ProjectOrgIdsReference) => ({
+        title: o.did,
+        value: o,
+      })),
+    initial: 0,
+  })) as { orgId: ProjectOrgIdsReference };
 
   return orgId;
 };
@@ -218,13 +212,7 @@ export const parseDid = (did: string): ParsedDid => {
     throw new Error(`Invalid DID format: ${did}`);
   }
 
-  const {
-    method,
-    network,
-    id,
-    query,
-    fragment
-  } = groupedCheck.groups;
+  const { method, network, id, query, fragment } = groupedCheck.groups;
 
   return {
     did,
@@ -232,7 +220,7 @@ export const parseDid = (did: string): ParsedDid => {
     network: network || '1', // Mainnet is default value
     orgId: id,
     query,
-    fragment
+    fragment,
   };
 };
 
@@ -255,7 +243,7 @@ export const getEthersProvider = async (
     const { password } = await prompts({
       type: 'password',
       name: 'password',
-      message: `Enter the password for the encrypted network provided URI`
+      message: `Enter the password for the encrypted network provided URI`,
     });
 
     providerUri = decrypt(uri, password);
@@ -285,7 +273,7 @@ export const getApiKey = async (
     const { password } = await prompts({
       type: 'password',
       name: 'password',
-      message: `Enter the password for the encrypted API key`
+      message: `Enter the password for the encrypted API key`,
     });
 
     apiKey = decrypt(key, password);
@@ -305,43 +293,29 @@ export const createOrgIdInstance = async (
     throw new Error('Chosen ORGiD does not have registered ORG.JSON yet.');
   }
 
-  const orgJsonSource = await read(
-    basePath,
-    orgId.orgJson,
-    true
-  ) as ORGJSON;
+  const orgJsonSource = (await read(basePath, orgId.orgJson, true)) as ORGJSON;
 
   const { network } = parseDid(orgJsonSource.id);
   const networkConfig = getSupportedNetworkConfig(network);
   const provider = await getEthersProvider(basePath, network);
 
-  return new OrgIdContract(
-    networkConfig.address,
-    provider
-  );
+  return new OrgIdContract(networkConfig.address, provider);
 };
 
 // Prepare an ORGiD API for transactions on the ORG.JSON basis
 export const prepareOrgIdApi = async (
   basePath: string,
   orgId: ProjectOrgIdsReference,
-  keyPair: ProjectKeysReference
+  keyPair: ProjectKeysReference,
+  useAwsKmsSigner = false
 ): Promise<OrgIdApi> => {
-
-  const {
-    orgJson,
-    owner
-  } = orgId;
+  const { orgJson, owner } = orgId;
 
   if (!orgJson) {
     throw new Error('Chosen ORGiD does not have registered ORG.JSON yet.');
   }
 
-  const orgJsonSource = await read(
-    basePath,
-    orgJson,
-    true
-  ) as ORGJSON;
+  const orgJsonSource = (await read(basePath, orgJson, true)) as ORGJSON;
 
   const { network, orgId: id } = parseDid(orgJsonSource.id);
   const networkConfig = getSupportedNetworkConfig(network);
@@ -351,7 +325,25 @@ export const prepareOrgIdApi = async (
     throw new Error('Unable to get registered key pair');
   }
 
-  const signer = new Wallet(keyPair.privateKey, provider);
+  let signer: Signer;
+
+  if (useAwsKmsSigner) {
+    const config = keyPair.privateKey as unknown as AwsKmsKeyConfig;
+    signer = new AwsKmsSigner(
+      config.keyId,
+      {
+        region: config.region,
+        credentials: {
+          accessKeyId: config.accessKeyId,
+          secretAccessKey: config.secretAccessKey,
+        },
+      },
+      provider
+    );
+  } else {
+    signer = new Wallet(keyPair.privateKey, provider);
+  }
+
   const signerAddress = await signer.getAddress();
 
   if (signerAddress !== etherUtils.getAddress(owner)) {
@@ -360,10 +352,7 @@ export const prepareOrgIdApi = async (
     );
   }
 
-  const orgIdContract = new OrgIdContract(
-    networkConfig.address,
-    provider
-  );
+  const orgIdContract = new OrgIdContract(networkConfig.address, provider);
 
   const { gasPrice } = await prompts([
     {
@@ -373,29 +362,29 @@ export const prepareOrgIdApi = async (
       choices: [
         {
           title: 'Yes',
-          value: true
+          value: true,
         },
         {
           title: 'No',
-          value: false
-        }
+          value: false,
+        },
       ],
-      initial: 0
+      initial: 0,
     },
     {
-      type: prevChoice => prevChoice ? 'text' : null,
+      type: (prevChoice) => (prevChoice ? 'text' : null),
       name: 'gasPrice',
-      message: 'Set gas price (GWEI)'
-    }
-  ])
+      message: 'Set gas price (GWEI)',
+    },
+  ]);
 
   return {
     provider,
     orgIdContract,
     signer,
     id,
-    gasPrice: gasPrice ? etherUtils.parseUnits(gasPrice, 'gwei') : undefined
-  }
+    gasPrice: gasPrice ? etherUtils.parseUnits(gasPrice, 'gwei') : undefined,
+  };
 };
 
 export const downloadOrgIdVc = async (
@@ -406,9 +395,9 @@ export const downloadOrgIdVc = async (
 
   switch (type) {
     case 'ipfs':
-      return await getFromIpfs(basePath, uri) as ORGJSONVCNFT;
+      return (await getFromIpfs(basePath, uri)) as ORGJSONVCNFT;
     case 'http':
-      return await http.request(uri, 'GET') as ORGJSONVCNFT;
+      return (await http.request(uri, 'GET')) as ORGJSONVCNFT;
     default:
       throw new Error(`Unknown ORGiD VC URI type ${type}`);
   }

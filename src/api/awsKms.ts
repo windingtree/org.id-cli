@@ -1,50 +1,47 @@
-import asn1 from 'asn1.js';
 import {
+  GetPublicKeyCommand,
   KMSClient,
   KMSClientConfig,
-  GetPublicKeyCommand,
-  SignCommand
+  SignCommand,
 } from '@aws-sdk/client-kms';
-import { TransactionRequest, Provider } from '@ethersproject/abstract-provider';
+import { Provider, TransactionRequest } from '@ethersproject/abstract-provider';
+import asn1 from 'asn1.js';
+import BN from 'bn.js';
 import { Bytes, Signer, TypedDataDomain, TypedDataField, utils } from 'ethers';
 import { Deferrable, UnsignedTransaction } from 'ethers/lib/utils';
-import BN from 'bn.js';
+import packageJson from '../../package.json';
 
 export type EcdsaParser = {
-  decode: (
-    asnStringBuffer: Buffer,
-    format: 'der'
-  ) => { r: BN; s: BN }
+  decode: (asnStringBuffer: Buffer, format: 'der') => { r: BN; s: BN };
 };
 
+// Public key decoder
 const EcdsaPubKey = asn1.define('EcdsaPubKey', function (this: any) {
   // https://tools.ietf.org/html/rfc5480#section-2
   this.seq().obj(
-      this.key('algo').seq().obj(
-          this.key('algorithm').objid(),
-          this.key('parameters').objid(),
-      ),
-      this.key('pubKey').bitstr() // <-- this is what we want
+    this.key('algo')
+      .seq()
+      .obj(this.key('algorithm').objid(), this.key('parameters').objid()),
+    this.key('pubKey').bitstr() // <-- this is what we want
   );
 });
 
+// Signature decoder
 const EcdsaSigAsnParse: EcdsaParser = asn1.define(
   'EcdsaSig',
   function (this: any) {
     // parsing this according to https://tools.ietf.org/html/rfc3279#section-2.2.3
-    this.seq().obj(
-      this.key('r').int(),
-      this.key('s').int()
-    );
+    this.seq().obj(this.key('r').int(), this.key('s').int());
   }
 );
 
+// Ethers.js compatible AWS KMS Signer
 export class AwsKmsSigner extends Signer {
   private readonly config: KMSClientConfig;
   private readonly client: KMSClient;
   private readonly keyId: string;
+  private readonly logger: utils.Logger;
   private rawPublicKey: ArrayBuffer;
-  public readonly provider?: Provider;
   public address?: string;
 
   constructor(keyId: string, config?: KMSClientConfig, provider?: Provider) {
@@ -52,7 +49,8 @@ export class AwsKmsSigner extends Signer {
     this.keyId = keyId;
     this.config = config ?? {};
     this.client = new KMSClient(this.config);
-    this.provider = provider;
+    this.logger = new utils.Logger(packageJson.version);
+    utils.defineReadOnly(this, 'provider', provider);
   }
 
   async getPublicKey(): Promise<ArrayBuffer> {
@@ -79,19 +77,17 @@ export class AwsKmsSigner extends Signer {
 
     const key = await this.getPublicKey();
     const res = EcdsaPubKey.decode(key, 'der');
-    let pubKeyBuffer = res.pubKey.data as Buffer;
+    let pubKeyBuffer = res.pubKey.data;
     pubKeyBuffer = pubKeyBuffer.slice(1, pubKeyBuffer.length);
-    this.address = utils.getAddress(
-      utils.keccak256(pubKeyBuffer).slice(-40)
-    );
+    this.address = utils.getAddress(utils.keccak256(pubKeyBuffer).slice(-40));
 
     return this.address;
   }
 
-  private async _signDigest(digest: Buffer) {
+  private async signDigest(digest: string) {
     const command = new SignCommand({
       KeyId: this.keyId,
-      Message: digest,
+      Message: Buffer.from(utils.arrayify(digest)),
       MessageType: 'DIGEST',
       SigningAlgorithm: 'ECDSA_SHA_256',
     });
@@ -112,28 +108,32 @@ export class AwsKmsSigner extends Signer {
     const secp256k1halfN = secp256k1N.div(new BN(2));
 
     const signature = {
-      r: `0x${r.toString('hex')}`,
-      s: `0x${(s.gt(secp256k1halfN) ? secp256k1N.sub(s) : s).toString('hex')}`
+      r,
+      s: s.gt(secp256k1halfN) ? secp256k1N.sub(s) : s,
+      v: 27,
     };
+
     const address = await this.getAddress();
+    const tryAddress = utils.recoverAddress(digest, {
+      r: `0x${signature.r.toString('hex')}`,
+      s: `0x${signature.s.toString('hex')}`,
+      v: signature.v,
+    });
+
+    if (address !== tryAddress) {
+      signature.v = 28;
+    }
 
     return utils.joinSignature({
-      v: utils.recoverAddress(
-          digest,
-          { ...signature, v: 27 }
-        ).toLocaleLowerCase() === address.toLocaleLowerCase()
-          ? 27
-          : 28,
-      ...signature
+      ...signature,
+      r: `0x${signature.r.toString('hex')}`,
+      s: `0x${signature.s.toString('hex')}`,
+      recoveryParam: 1 - (signature.v % 2),
     });
   }
 
-  createDigest(hash: string | Bytes): Buffer {
-    return Buffer.from(utils.arrayify(hash));
-  }
-
   async signMessage(message: string | Bytes): Promise<string> {
-    return this._signDigest(this.createDigest(utils.hashMessage(message)));
+    return this.signDigest(utils.hashMessage(message));
   }
 
   async _signTypedData(
@@ -142,14 +142,37 @@ export class AwsKmsSigner extends Signer {
     value: Record<string, any>
   ): Promise<string> {
     const hash = utils._TypedDataEncoder.hash(domain, types, value);
-    return this._signDigest(this.createDigest(hash));
+    return this.signDigest(hash);
   }
 
-  async signTransaction(transaction: Deferrable<TransactionRequest>): Promise<string> {
+  async signTransaction(
+    transaction: Deferrable<TransactionRequest>
+  ): Promise<string> {
     const unsignedTx = await utils.resolveProperties(transaction);
-    const serializedTx = utils.serializeTransaction(<UnsignedTransaction>unsignedTx);
-    const transactionSignature = await this.signMessage(utils.keccak256(serializedTx));
-    return utils.serializeTransaction(<UnsignedTransaction>unsignedTx, transactionSignature);
+    const address = await this.getAddress();
+
+    if (unsignedTx.from != null) {
+      if (utils.getAddress(unsignedTx.from) !== address) {
+        this.logger.throwArgumentError(
+          'transaction from address mismatch',
+          'transaction.from',
+          transaction.from
+        );
+      }
+      delete unsignedTx.from;
+    }
+
+    const serializedTx = utils.serializeTransaction(
+      <UnsignedTransaction>unsignedTx
+    );
+    const transactionSignature = await this.signDigest(
+      utils.keccak256(serializedTx)
+    );
+
+    return utils.serializeTransaction(
+      <UnsignedTransaction>unsignedTx,
+      transactionSignature
+    );
   }
 
   connect(provider: Provider): AwsKmsSigner {
