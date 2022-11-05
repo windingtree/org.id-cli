@@ -102,6 +102,7 @@ orgid --operation bootstrap --output ./rawOrgId.json
 
 ```bash
 orgid --operation keys:add --keyType ethereum --delegated true
+orgid --operation keys:add --keyType kmsEthereum --delegated true
 orgid --operation keys:add --keyType pem --delegated true
 ```
 
