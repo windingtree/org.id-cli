@@ -11,7 +11,7 @@ export const printObject = (obj: object): void => {
   console.log('\n');
   jsome(obj);
   console.log('\n');
-}
+};
 
 export const printWarn = (message: string): void =>
   console.log(chalk.yellow(message));

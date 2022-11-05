@@ -15,10 +15,7 @@ import { resolveOrgId } from './api/resolveOrgId';
 import { createJwt } from './api/jwt';
 
 // Main CLI handler
-export const cli = async (
-  basePath: string,
-  argv: string[]
-): Promise<void> => {
+export const cli = async (basePath: string, argv: string[]): Promise<void> => {
   const args = parseArguments(
     {
       '--operation': String,
@@ -79,14 +76,16 @@ export const cli = async (
     case 'resolve':
       await resolveOrgId(basePath, args);
       break;
-    // case 'transfer':
-    //   await transferOwnership(basePath, args);
+      // case 'transfer':
+      //   await transferOwnership(basePath, args);
       break;
     case 'jwt':
       await createJwt(basePath, args);
       break;
     case undefined:
-      throw new Error('Operation type must be provided using "--operation" parameter');
+      throw new Error(
+        'Operation type must be provided using "--operation" parameter'
+      );
     default:
       throw new Error(`Unknown operation type "${args['--operation']}"`);
   }
@@ -94,7 +93,7 @@ export const cli = async (
 
 cli(process.cwd(), process.argv)
   .then(() => process.exit(0))
-  .catch(error => {
+  .catch((error) => {
     printError(error.message);
     process.exit(1);
   });

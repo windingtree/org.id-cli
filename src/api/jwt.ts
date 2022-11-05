@@ -1,24 +1,45 @@
-import type { ParsedArgv } from '../utils/env';
-import { ethers, utils } from 'ethers';
-import { parsers } from '@windingtree/org.id-utils';
-import { createAuthJWTWithEthers, createAuthJWT } from '@windingtree/org.id-auth/dist/tokens';
-import { initOrgIdResolver } from './resolveOrgId';
-import { printInfo, printWarn } from '../utils/console';
-import { getKeyPairsFromProject } from './project';
-import prompts from 'prompts';
-import { decrypt } from './common';
-import { parseDid } from '@windingtree/org.id-utils/dist/parsers';
 import { JWK } from '@windingtree/org.id-auth/dist/keys';
+import {
+  createAuthJWT,
+  createAuthJWTWithEthers,
+} from '@windingtree/org.id-auth/dist/tokens';
+import { parseDid } from '@windingtree/org.id-utils/dist/parsers';
+import { Signer, utils, Wallet } from 'ethers';
+import prompts from 'prompts';
+import { ProjectKeysReference } from '../schema/types/project';
+import { printInfo, printWarn } from '../utils/console';
+import { ParsedArgv } from '../utils/env';
+import { AwsKmsSigner } from './awsKms';
+import { decrypt } from './common';
+import { AwsKmsKeyConfig } from './keysImport';
+import { getKeyPairsFromProject } from './project';
+import { initOrgIdResolver } from './resolveOrgId';
 
 const createJwtWithEthereum = async (
   issuer: string,
   audience: string,
   scope: string[] | undefined,
   expiration: number | undefined,
-  accountAddress: string,
-  signerKey: string
+  keyPair: ProjectKeysReference,
+  useAwsKmsSigner = false
 ): Promise<string> => {
-  const signer = new ethers.Wallet(signerKey);
+  let signer: Signer;
+  let accountAddress: string;
+
+  if (useAwsKmsSigner) {
+    const config = keyPair.privateKey as unknown as AwsKmsKeyConfig;
+    signer = new AwsKmsSigner(config.keyId, {
+      region: config.region,
+      credentials: {
+        accessKeyId: config.accessKeyId,
+        secretAccessKey: config.secretAccessKey,
+      },
+    });
+    accountAddress = await signer.getAddress();
+  } else {
+    signer = new Wallet(keyPair.privateKey);
+    accountAddress = keyPair.publicKey;
+  }
 
   const signerAddress = await signer.getAddress();
 
@@ -29,7 +50,7 @@ const createJwtWithEthereum = async (
   }
 
   return await createAuthJWTWithEthers(
-    signer,
+    signer as Wallet,
     issuer,
     audience,
     scope,
@@ -44,20 +65,13 @@ const createJwtWithPem = async (
   expiration: number | undefined,
   signerKey: JWK
 ): Promise<string> => {
-  return await createAuthJWT(
-    signerKey,
-    issuer,
-    audience,
-    scope,
-    expiration
-  );
+  return await createAuthJWT(signerKey, issuer, audience, scope, expiration);
 };
 
 export const createJwt = async (
   basePath: string,
   args: ParsedArgv
 ): Promise<void> => {
-
   if (!args['--issuer']) {
     throw new Error(
       'A token issuer did must be provided using "--issuer" option'
@@ -111,7 +125,7 @@ export const createJwt = async (
   }
 
   const verificationMethod = didDocument?.verificationMethod?.find(
-    v => v.id === args['--issuer']
+    (v) => v.id === args['--issuer']
   );
 
   if (!verificationMethod) {
@@ -123,12 +137,12 @@ export const createJwt = async (
   const { fragment } = parseDid(args['--issuer']);
 
   if (!fragment) {
-    throw new Error(`Unable to extract verification method key Id from ${args['--issuer']}`);
+    throw new Error(
+      `Unable to extract verification method key Id from ${args['--issuer']}`
+    );
   }
 
-  const keyPair = keyPairRecords.find(
-    k => k.tag === fragment
-  );
+  const keyPair = keyPairRecords.find((k) => k.tag === fragment);
 
   if (!keyPair) {
     throw new Error(`Key pair ${fragment} not found in the project`);
@@ -137,10 +151,10 @@ export const createJwt = async (
   const { password } = await prompts({
     type: 'password',
     name: 'password',
-    message: `Enter the password for the key pair "${keyPair.tag}"`
+    message: `Enter the password for the key pair "${keyPair.tag}"`,
   });
 
-  let signerKey = decrypt(keyPair.privateKey, password);
+  keyPair.privateKey = decrypt(keyPair.privateKey, password);
   let token: string;
 
   switch (keyPair.type) {
@@ -150,18 +164,27 @@ export const createJwt = async (
         args['--audience'],
         scope,
         expiration,
-        keyPair.publicKey,
-        signerKey
+        keyPair
+      );
+      break;
+    case 'kmsEthereum':
+      keyPair.privateKey = JSON.parse(keyPair.privateKey);
+      token = await createJwtWithEthereum(
+        args['--issuer'],
+        args['--audience'],
+        scope,
+        expiration,
+        keyPair,
+        true
       );
       break;
     case 'pem':
-      signerKey = JSON.parse(signerKey);
       token = await createJwtWithPem(
         args['--issuer'],
         args['--audience'],
         scope,
         expiration,
-        signerKey as unknown as JWK
+        keyPair.privateKey as unknown as JWK
       );
       break;
     default:

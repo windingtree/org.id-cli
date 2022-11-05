@@ -97,7 +97,7 @@ export interface ProjectDeploymentReference {
   /**
    * A type of deployment
    */
-  type: "ipfs" | "ipns" | "rest";
+  type: 'ipfs' | 'ipns' | 'rest';
   /**
    * Path to the local file
    */
@@ -119,7 +119,7 @@ export interface ProjectVcReference {
   /**
    * A type of VC
    */
-  type: "VerifiableCredential" | "OrgJson";
+  type: 'VerifiableCredential' | 'OrgJson';
   /**
    * ORGiD DID of the ORG.JSON
    */
@@ -187,7 +187,7 @@ export interface ProjectKeysReference {
   /**
    * Type of key pair
    */
-  type: "ethereum" | "pem" | "multisig";
+  type: 'ethereum' | 'pem' | 'multisig' | 'kmsEthereum';
   /**
    * A unique key pair tag
    */

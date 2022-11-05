@@ -70,6 +70,22 @@ orgid --operation keys:import --keyType pem --pubPem ./key.pub --privPem ./pkcs8
 
 > Important! You can import `pkcs8`-formatted private key only
 
+### Import of key pair managed by AWS KMS
+
+```bash
+orgid --operation keys:import --keyType kmsEthereum
+```
+
+> During the import process you will be prompted enter the following credentials\*:
+>
+> - `keyId` - unique Key Id that has been created when key has been create on AWS KMS
+> - `region` - AWS region in which the key is enabled
+> - `accessKeyId`
+> - `secretAccessKey`
+>
+> * all these credentials are mandatory options.
+>   As usual, you will be prompted for password that will be used for an encryption of key data in the project
+
 ## Bootstrap a new ORGiD
 
 ```bash
@@ -86,8 +102,11 @@ orgid --operation bootstrap --output ./rawOrgId.json
 
 ```bash
 orgid --operation keys:add --keyType ethereum --delegated true
+orgid --operation keys:add --keyType kmsEthereum --delegated true
 orgid --operation keys:add --keyType pem --delegated true
 ```
+
+> If you do not owner of the key you also should add parameter `--controller <did>` which will point to the owner (its DID) of the key to the verification method record
 
 ## Create ORGiD VC
 

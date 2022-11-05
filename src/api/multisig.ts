@@ -1,6 +1,13 @@
-import axios from 'axios';
-import { utils, constants, Wallet, PopulatedTransaction, BigNumber, TypedDataField } from 'ethers';
 import { _TypedDataEncoder } from '@ethersproject/hash';
+import axios from 'axios';
+import {
+  BigNumber,
+  constants,
+  PopulatedTransaction,
+  TypedDataField,
+  utils,
+  Wallet,
+} from 'ethers';
 import prompts from 'prompts';
 
 export interface SafeNonceResponse {
@@ -33,11 +40,11 @@ export interface SafeAddress {
   name: string;
 }
 
-const chains: Record<string, { chainId: number, name: string }> = {
+const chains: Record<string, { chainId: number; name: string }> = {
   gor: {
     chainId: 5,
-    name: 'goerli'
-  }
+    name: 'goerli',
+  },
 };
 
 export const parseSafeAddress = (rawAddress: string): SafeAddress => {
@@ -52,7 +59,7 @@ export const parseSafeAddress = (rawAddress: string): SafeAddress => {
   return {
     address: utils.getAddress(address),
     chainId,
-    name
+    name,
   };
 };
 
@@ -62,14 +69,12 @@ export const getNonce = async (
 ): Promise<SafeNonceResponse> => {
   try {
     const uri = `https://safe-transaction-${chainPrefix}.safe.global/api/v1/safes/${safeAddress}`;
-    const response = await axios.get<SafeNonceResponse>(
-      uri
-    );
+    const response = await axios.get<SafeNonceResponse>(uri);
     return response.data;
   } catch (error) {
     throw new Error(JSON.stringify(error.response.data));
   }
-}
+};
 
 export const estimateTx = async (
   safeAddress: string,
@@ -78,16 +83,13 @@ export const estimateTx = async (
 ): Promise<SafeTxGas> => {
   try {
     const uri = `https://safe-transaction-${chainPrefix}.safe.global/api/v1/safes/${safeAddress}/multisig-transactions/estimations/`;
-    const response =  await axios.post<SafeTxGas>(
-      uri,
-      baseTx
-    );
+    const response = await axios.post<SafeTxGas>(uri, baseTx);
     return response.data;
   } catch (error) {
     console.log(error);
     throw new Error(JSON.stringify(error.response.data));
   }
-}
+};
 
 export const proposeTx = async (
   safeAddress: string,
@@ -98,7 +100,7 @@ export const proposeTx = async (
   const {
     address: walletAccount,
     name: chainPrefix,
-    chainId
+    chainId,
   } = parseSafeAddress(safeAddress);
 
   const normalizedTx: BaseTx = {
@@ -108,7 +110,7 @@ export const proposeTx = async (
         ? baseTx.value.toString()
         : baseTx.value
       : '0',
-    operation: 0
+    operation: 0,
   };
 
   if (nonce === undefined) {
@@ -129,13 +131,13 @@ export const proposeTx = async (
     baseGas: '0',
     gasPrice: '0',
     gasToken: constants.AddressZero,
-    refundReceiver: constants.AddressZero
+    refundReceiver: constants.AddressZero,
   };
 
   const safeTxTypes: Record<string, TypedDataField[]> = {
     EIP712Domain: [
       { type: 'uint256', name: 'chainId' },
-      { type: 'address', name: 'verifyingContract' }
+      { type: 'address', name: 'verifyingContract' },
     ],
     SafeTx: [
       { type: 'address', name: 'to' },
@@ -147,14 +149,14 @@ export const proposeTx = async (
       { type: 'uint256', name: 'gasPrice' },
       { type: 'address', name: 'gasToken' },
       { type: 'address', name: 'refundReceiver' },
-      { type: 'uint256', name: 'nonce' }
-    ]
+      { type: 'uint256', name: 'nonce' },
+    ],
   };
 
   const { privateKey } = await prompts({
     type: 'password',
     name: 'privateKey',
-    message: `Please enter a private key of one of the owners of the ${safeAddress} multisig`
+    message: `Please enter a private key of one of the owners of the ${safeAddress} multisig`,
   });
 
   if (!privateKey || privateKey === '') {
@@ -166,7 +168,7 @@ export const proposeTx = async (
 
   const safeTypedDataDomain = {
     chainId,
-    verifyingContract: walletAccount
+    verifyingContract: walletAccount,
   };
 
   const contractTransactionHash = _TypedDataEncoder.hash(
@@ -184,15 +186,12 @@ export const proposeTx = async (
   const uri = `https://safe-transaction-${chainPrefix}.safe.global/api/v1/safes/${walletAccount}/multisig-transactions/`;
 
   try {
-    await axios.post(
-      uri,
-      {
-        ...txn,
-        sender,
-        contractTransactionHash,
-        signature
-      }
-    );
+    await axios.post(uri, {
+      ...txn,
+      sender,
+      contractTransactionHash,
+      signature,
+    });
 
     return nonce;
   } catch (error) {

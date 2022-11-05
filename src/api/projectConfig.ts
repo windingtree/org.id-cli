@@ -1,13 +1,14 @@
-import type { ParsedArgv } from '../utils/env';
-import type { KnownProjectConfigRecords } from '../api/project';
-import type { NetworkProviderConfigReference, ApiKeyConfigReference } from '../schema/types/project';
+import { DateTime } from 'luxon';
 import prompts from 'prompts';
-import { DateTime } from  'luxon';
+import type { KnownProjectConfigRecords } from '../api/project';
+import type {
+  ApiKeyConfigReference,
+  NetworkProviderConfigReference,
+} from '../schema/types/project';
 import { printInfo } from '../utils/console';
+import type { ParsedArgv } from '../utils/env';
 import { encrypt } from './common';
-import {
-  addConfigRecordToProject
-} from './project';
+import { addConfigRecordToProject } from './project';
 
 // Manage provider config
 export const manageProvider = async (
@@ -17,7 +18,7 @@ export const manageProvider = async (
     {
       type: 'text',
       name: 'id',
-      message: 'Please enter a network Id'
+      message: 'Please enter a network Id',
     },
     {
       type: 'select',
@@ -26,36 +27,36 @@ export const manageProvider = async (
       choices: [
         {
           title: 'Yes',
-          value: true
+          value: true,
         },
         {
           title: 'No',
-          value: false
-        }
+          value: false,
+        },
       ],
-      initial: 0
+      initial: 0,
     },
     {
-      type: prevChoice => prevChoice ? 'password' : 'text',
+      type: (prevChoice) => (prevChoice ? 'password' : 'text'),
       name: 'uri',
       message: 'Please enter the provider URI',
     },
     {
-      type: (_, v) => v.requireEncryption ? 'password' : null,
+      type: (_, v) => (v.requireEncryption ? 'password' : null),
       name: 'password',
       message: 'Please provide a password',
-      validate: value =>
+      validate: (value) =>
         /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/.exec(value)
           ? true
-          : 'Password must consist of a minimum of eight characters, at least one letter and one number'
-    }
+          : 'Password must consist of a minimum of eight characters, at least one letter and one number',
+    },
   ]);
 
   const configRecordTemplate: NetworkProviderConfigReference = {
     id,
     uri: password ? encrypt(uri, password) : uri,
     encrypted: !!password,
-    date: DateTime.now().toISO()
+    date: DateTime.now().toISO(),
   };
 
   const configRecord = await addConfigRecordToProject(
@@ -79,7 +80,7 @@ export const manageApisKeysStorage = async (
     {
       type: 'text',
       name: 'id',
-      message: 'Please enter API key Id'
+      message: 'Please enter API key Id',
     },
     {
       type: 'select',
@@ -88,36 +89,36 @@ export const manageApisKeysStorage = async (
       choices: [
         {
           title: 'Yes',
-          value: true
+          value: true,
         },
         {
           title: 'No',
-          value: false
-        }
+          value: false,
+        },
       ],
-      initial: 0
+      initial: 0,
     },
     {
-      type: prevChoice => prevChoice ? 'password' : 'text',
+      type: (prevChoice) => (prevChoice ? 'password' : 'text'),
       name: 'key',
       message: 'Please enter the API key',
     },
     {
-      type: (_, v) => v.requireEncryption ? 'password' : null,
+      type: (_, v) => (v.requireEncryption ? 'password' : null),
       name: 'password',
       message: 'Please provide a password',
-      validate: value =>
+      validate: (value) =>
         /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$/.exec(value)
           ? true
-          : 'Password must consist of a minimum of eight characters, at least one letter and one number'
-    }
+          : 'Password must consist of a minimum of eight characters, at least one letter and one number',
+    },
   ]);
 
   const configRecordTemplate: ApiKeyConfigReference = {
     id,
     key: password ? encrypt(key, password) : key,
     encrypted: !!password,
-    date: DateTime.now().toISO()
+    date: DateTime.now().toISO(),
   };
 
   const configRecord = await addConfigRecordToProject(
@@ -138,7 +139,6 @@ export const manageConfigRecords = async (
   basePath: string,
   args: ParsedArgv
 ): Promise<void> => {
-
   if (!args['--record']) {
     throw new Error(
       'Project config record type must be provided using "--record" option'
@@ -154,6 +154,6 @@ export const manageConfigRecords = async (
       break;
     // @todo Add more record types
     default:
-      throw new Error(`Unknown config record type: "${args['--record']}"`)
+      throw new Error(`Unknown config record type: "${args['--record']}"`);
   }
 };

@@ -13,7 +13,9 @@ export interface IpfsApiAddResponse {
   Size: string;
 }
 
-const createWeb3StorageClient = async (basePath: string): Promise<Web3Storage> => {
+const createWeb3StorageClient = async (
+  basePath: string
+): Promise<Web3Storage> => {
   return new Web3Storage({ token: await getApiKey(basePath, 'w3s') });
 };
 
@@ -22,18 +24,31 @@ const getFiles = async (path: string): Promise<FileObject[]> => {
   return files;
 };
 
-export const addToIpfs = async (basePath: string, filePath: string): Promise<string> => {
+export const addToIpfs = async (
+  basePath: string,
+  filePath: string
+): Promise<string> => {
   const client = await createWeb3StorageClient(basePath);
   const files = await getFiles(filePath);
-  const cid = await client.put(files as Iterable<Filelike>, { wrapWithDirectory: false });
+  const cid = await client.put(files as Iterable<Filelike>, {
+    wrapWithDirectory: false,
+  });
   return cid;
 };
 
-export const removeFromIpfs = async (basePath: string, cid: string): Promise<void> => {
+export const removeFromIpfs = async (
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  basePath: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  cid: string
+): Promise<void> => {
   // will be implemented later
 };
 
-export const getFromIpfs = async (basePath: string, cid: string): Promise<unknown> => {
+export const getFromIpfs = async (
+  basePath: string,
+  cid: string
+): Promise<unknown> => {
   return http.request(
     `https://w3s.link/ipfs/${cid}`,
     'GET',

@@ -16,8 +16,11 @@ function getRandomValues<T extends ArrayBufferView | null>(buffer: T): T {
   if (buffer.length > 65536) {
     const e = new Error() as ErrorWithCode;
     e.code = 22;
-    e.message = 'Failed to execute \'getRandomValues\' on \'Crypto\': The ' +
-      'ArrayBufferView\'s byte length (' + buffer.length + ') exceeds the ' +
+    e.message =
+      "Failed to execute 'getRandomValues' on 'Crypto': The " +
+      "ArrayBufferView's byte length (" +
+      buffer.length +
+      ') exceeds the ' +
       'number of bytes of entropy available via this API (65536).';
     e.name = 'QuotaExceededError';
     throw e;

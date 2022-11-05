@@ -1,33 +1,30 @@
-import type { ORGJSONVCNFT } from '@windingtree/org.json-schema/types/orgVc';
-import type { ParsedArgv } from '../utils/env';
-import type { ProjectDeploymentReference } from '../schema/types/project';
-import path from 'path';
-import { DateTime } from  'luxon';
 import { object } from '@windingtree/org.id-utils';
-import { addDeploymentToProject } from './project';
-import { addToIpfs, removeFromIpfs } from './ipfs';
+import type { ORGJSONVCNFT } from '@windingtree/org.json-schema/types/orgVc';
+import { DateTime } from 'luxon';
+import path from 'path';
+import type { ProjectDeploymentReference } from '../schema/types/project';
 import { printInfo } from '../utils/console';
+import type { ParsedArgv } from '../utils/env';
 import { read } from './fs';
+import { addToIpfs, removeFromIpfs } from './ipfs';
+import { addDeploymentToProject } from './project';
 
 export const deployFileIpfs = async (
   basePath: string,
   args: ParsedArgv
 ): Promise<ProjectDeploymentReference> => {
-
   if (!args['--path']) {
-    throw new Error(
-      `Path to the file must be provided using "--path" option`
-    );
+    throw new Error(`Path to the file must be provided using "--path" option`);
   }
 
   let orgIdDid: string | undefined;
 
   if (args['--filetype'] === 'orgIdVc') {
-    const orgIdVc = await read(
+    const orgIdVc = (await read(
       basePath,
       args['--path'],
       true
-    ) as ORGJSONVCNFT;
+    )) as ORGJSONVCNFT;
     orgIdDid = object.getDeepValue(orgIdVc, 'credentialSubject.id') as string;
   }
 
@@ -40,7 +37,7 @@ export const deployFileIpfs = async (
     type: 'ipfs',
     path: fileToDeploy,
     uri: `ipfs://${cid}`,
-    date: DateTime.now().toISO()
+    date: DateTime.now().toISO(),
   };
 
   const { remove } = await addDeploymentToProject(
@@ -56,9 +53,7 @@ export const deployFileIpfs = async (
   if (remove) {
     await removeFromIpfs(basePath, remove.uri.split('//')[1]);
 
-    printInfo(
-      `Old deployment ${remove.uri} has been successfully unpinned`
-    );
+    printInfo(`Old deployment ${remove.uri} has been successfully unpinned`);
   }
 
   return deploymentRecord;

@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "target": "es5",
+    "target": "es6",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "experimentalDecorators": true,
@@ -13,14 +13,8 @@
     "skipLibCheck": true,
     "declaration": true,
     "outDir": "dist",
-    "baseUrl": ".",
+    "baseUrl": "."
   },
-  "include": [
-    "src",
-    "test",
-    "src/schema/project.json"
-  ],
-  "exclude": [
-    "bin/index.js"
-  ]
+  "include": ["src", "test", "src/schema/project.json"],
+  "exclude": ["bin/index.js"]
 }
